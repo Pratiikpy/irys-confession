@@ -1149,6 +1149,7 @@ class IrysConfessionAPITester:
             print("\n🎉 ALL TESTS PASSED! Backend API is fully functional.")
             print("✨ Features verified:")
             print("   • User Authentication System")
+            print("   • Wallet Authentication System")
             print("   • Enhanced Confession System with AI Analysis")
             print("   • Reply System with Threading")
             print("   • Voting System")
