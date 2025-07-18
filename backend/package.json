@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@irys/sdk": "^0.2.11",
+    "dotenv": "^17.2.0"
+  }
+}
