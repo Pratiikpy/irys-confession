@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Edit, MessageCircle, Search } from 'lucide-react';
 import ComposeModal from '../confession/ComposeModal';
 
-const FloatingActionButton = () => {
+const FloatingActionButton = ({ onNewConfession }) => {
   const [showCompose, setShowCompose] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
 
