@@ -60,6 +60,24 @@ export const authAPI = {
     const response = await api.put('/auth/preferences', preferences);
     return response.data;
   },
+
+  // Wallet authentication functions
+  generateWalletChallenge: async (walletAddress) => {
+    const response = await api.post('/auth/wallet/challenge', {
+      wallet_address: walletAddress
+    });
+    return response.data;
+  },
+
+  verifyWalletSignature: async (signatureData) => {
+    const response = await api.post('/auth/wallet/verify', signatureData);
+    return response.data;
+  },
+
+  linkWalletToAccount: async (linkData) => {
+    const response = await api.post('/auth/wallet/link', linkData);
+    return response.data;
+  },
 };
 
 export const confessionAPI = {
