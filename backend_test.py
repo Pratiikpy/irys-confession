@@ -690,41 +690,169 @@ class IrysConfessionAPITester:
                     error_msg = f" - Response: {response.text[:200]}"
             return self.log_test("Vote Confession", False, f"- Status: {status_code}{error_msg}")
 
+    def test_health_check(self):
+        """Test GET /api/health"""
+        print("\n🔍 Testing Health Check Endpoint...")
+        response, success = self.make_request('GET', 'health', expected_status=200)
+        
+        if success and response:
+            try:
+                data = response.json()
+                has_status = 'status' in data and data['status'] == 'healthy'
+                has_timestamp = 'timestamp' in data
+                
+                if has_status and has_timestamp:
+                    return self.log_test("Health Check", True, f"- Status: {data['status']}")
+                else:
+                    return self.log_test("Health Check", False, "- Missing required fields")
+            except json.JSONDecodeError:
+                return self.log_test("Health Check", False, "- Invalid JSON response")
+        else:
+            status_code = response.status_code if response else "No response"
+            return self.log_test("Health Check", False, f"- Status: {status_code}")
+
+    def test_create_confession_anonymous(self):
+        """Test POST /api/confessions (anonymous)"""
+        print("\n🔍 Testing Create Anonymous Confession...")
+        
+        test_confession = {
+            "content": "This is an anonymous test confession from the testing agent",
+            "is_public": True,
+            "author": "anonymous"
+        }
+        
+        response, success = self.make_request('POST', 'confessions', data=test_confession, expected_status=200)
+        
+        if success and response:
+            try:
+                data = response.json()
+                required_fields = ['status', 'id', 'tx_id', 'gateway_url', 'verified']
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if not missing_fields and data.get('status') == 'success':
+                    # Store for later tests if we don't have one from authenticated user
+                    if not self.created_confession_id:
+                        self.created_confession_id = data.get('id')
+                        self.created_tx_id = data.get('tx_id')
+                    return self.log_test("Create Anonymous Confession", True, f"- ID: {data.get('id')}")
+                else:
+                    return self.log_test("Create Anonymous Confession", False, f"- Missing fields: {missing_fields}")
+            except json.JSONDecodeError:
+                return self.log_test("Create Anonymous Confession", False, "- Invalid JSON response")
+        else:
+            status_code = response.status_code if response else "No response"
+            error_msg = ""
+            if response:
+                try:
+                    error_data = response.json()
+                    error_msg = f" - Error: {error_data.get('detail', 'Unknown error')}"
+                except:
+                    error_msg = f" - Response: {response.text[:200]}"
+            return self.log_test("Create Anonymous Confession", False, f"- Status: {status_code}{error_msg}")
+
     def run_all_tests(self):
         """Run all API tests"""
-        print("🚀 Starting Irys Confession Board API Tests")
+        print("🚀 Starting Comprehensive Irys Confession Board API Tests")
         print(f"📡 Testing against: {self.base_url}")
-        print("=" * 60)
+        print("=" * 80)
         
-        # Run tests in logical order
+        # 1. Basic API Health Tests
+        print("\n📋 BASIC API & HEALTH TESTS")
+        print("-" * 40)
+        self.test_root_endpoint()
         self.test_health_check()
-        self.test_irys_network_info()
-        self.test_irys_address()
-        self.test_create_confession()
         
-        # Wait a moment for confession to be processed
+        # 2. User Authentication System Tests
+        print("\n👤 USER AUTHENTICATION SYSTEM TESTS")
+        print("-" * 40)
+        self.test_user_registration()
+        self.test_user_login()
+        self.test_get_user_profile()
+        self.test_update_user_preferences()
+        
+        # 3. Enhanced Confession System Tests
+        print("\n📝 ENHANCED CONFESSION SYSTEM TESTS")
+        print("-" * 40)
+        self.test_create_confession_with_ai()
+        self.test_create_confession_anonymous()  # Fallback for other tests
+        
+        # Wait for confession processing
         if self.created_tx_id:
-            print("\n⏳ Waiting 2 seconds for confession to be processed...")
-            time.sleep(2)
+            print("\n⏳ Waiting 3 seconds for confession processing...")
+            time.sleep(3)
         
         self.test_get_public_confessions()
-        self.test_get_trending()
         self.test_get_specific_confession()
+        
+        # 4. Reply System Tests
+        print("\n💬 REPLY SYSTEM TESTS")
+        print("-" * 40)
+        self.test_create_reply()
+        self.test_get_replies()
+        
+        # 5. Voting System Tests
+        print("\n🗳️ VOTING SYSTEM TESTS")
+        print("-" * 40)
         self.test_vote_confession()
+        self.test_vote_reply()
+        
+        # 6. Advanced Search Tests
+        print("\n🔍 ADVANCED SEARCH TESTS")
+        print("-" * 40)
+        self.test_advanced_search()
+        self.test_get_trending()
+        self.test_trending_tags()
+        
+        # 7. Analytics Tests
+        print("\n📊 ANALYTICS TESTS")
+        print("-" * 40)
+        self.test_analytics_stats()
+        
+        # 8. Irys Integration Tests
+        print("\n🔗 IRYS INTEGRATION TESTS")
+        print("-" * 40)
+        self.test_irys_network_info()
+        self.test_irys_address()
+        self.test_irys_balance()
+        self.test_verify_transaction()
+        
+        # 9. Real-time Features Tests
+        print("\n⚡ REAL-TIME FEATURES TESTS")
+        print("-" * 40)
+        self.test_websocket_connection()
         
         # Print final results
-        print("\n" + "=" * 60)
-        print("📊 TEST RESULTS SUMMARY")
-        print("=" * 60)
+        print("\n" + "=" * 80)
+        print("📊 COMPREHENSIVE TEST RESULTS SUMMARY")
+        print("=" * 80)
         print(f"✅ Tests Passed: {self.tests_passed}")
         print(f"❌ Tests Failed: {self.tests_run - self.tests_passed}")
         print(f"📈 Success Rate: {(self.tests_passed/self.tests_run)*100:.1f}%")
         
+        # Detailed breakdown
         if self.tests_passed == self.tests_run:
-            print("\n🎉 ALL TESTS PASSED! Backend API is working correctly.")
+            print("\n🎉 ALL TESTS PASSED! Backend API is fully functional.")
+            print("✨ Features verified:")
+            print("   • User Authentication System")
+            print("   • Enhanced Confession System with AI Analysis")
+            print("   • Reply System with Threading")
+            print("   • Voting System")
+            print("   • Advanced Search & Filtering")
+            print("   • Analytics & Trending")
+            print("   • Irys Blockchain Integration")
+            print("   • Real-time WebSocket Features")
             return 0
         else:
-            print(f"\n⚠️  {self.tests_run - self.tests_passed} test(s) failed. Check the logs above.")
+            failed_count = self.tests_run - self.tests_passed
+            print(f"\n⚠️  {failed_count} test(s) failed. Check the logs above for details.")
+            
+            if self.tests_passed / self.tests_run >= 0.8:
+                print("✅ Most core functionality is working (80%+ success rate)")
+            elif self.tests_passed / self.tests_run >= 0.6:
+                print("⚠️  Some issues detected but basic functionality works (60%+ success rate)")
+            else:
+                print("❌ Significant issues detected - major functionality problems")
+            
             return 1
 
 def main():
