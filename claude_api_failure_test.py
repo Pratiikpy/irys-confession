@@ -75,7 +75,15 @@ class ClaudeAPIFailureTest:
                 print("❌ Failed to parse registration response")
                 return False
         else:
-            print("❌ Failed to create test user")
+            status_code = response.status_code if response else "No response"
+            error_msg = ""
+            if response:
+                try:
+                    error_data = response.json()
+                    error_msg = f" - Error: {error_data.get('detail', 'Unknown error')}"
+                except:
+                    error_msg = f" - Response: {response.text[:200]}"
+            print(f"❌ Failed to create test user - Status: {status_code}{error_msg}")
             return False
 
     def test_confession_creation_with_claude_failure(self):
