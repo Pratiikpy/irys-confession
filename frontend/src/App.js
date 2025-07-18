@@ -8,7 +8,6 @@ import { ThemeProvider } from './contexts/ThemeContext';
 // Layout Components
 import Header from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
-import FloatingActionButton from './components/layout/FloatingActionButton';
 
 // Page Components
 import HomePage from './pages/HomePage';
