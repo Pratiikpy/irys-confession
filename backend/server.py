@@ -561,8 +561,11 @@ async def create_confession(
                     current_user["id"]
                 )
         
-        # Check if content should be auto-moderated
-        if moderation_analysis.get("recommended_action") == "remove":
+        # Check if Claude API failed (indicated by 'error' key in response)
+        claude_api_failed = moderation_analysis.get("error") is not None
+        
+        # Check if content should be auto-moderated (only if Claude API worked)
+        if not claude_api_failed and moderation_analysis.get("recommended_action") == "remove":
             raise HTTPException(
                 status_code=400,
                 detail="Content violates community guidelines"
