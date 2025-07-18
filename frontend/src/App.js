@@ -28,79 +28,81 @@ import './App.css';
 function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <WebSocketProvider>
-          <Router>
-            <div className="app">
-              {/* Background Pattern */}
-              <div className="app-background" />
-              
-              {/* Header */}
-              <Header />
-              
-              {/* Main Layout */}
-              <div className="app-layout">
-                {/* Sidebar - Hidden on mobile */}
-                <div className="sidebar-container">
-                  <Sidebar />
-                </div>
+      <WalletProvider>
+        <AuthProvider>
+          <WebSocketProvider>
+            <Router>
+              <div className="app">
+                {/* Background Pattern */}
+                <div className="app-background" />
                 
-                {/* Main Content Area */}
-                <main className="main-content">
-                  <Routes>
-                    <Route path="/" element={<HomePage />} />
-                    <Route path="/confession/:id" element={<ConfessionPage />} />
-                    <Route path="/user/:username" element={<UserProfile />} />
-                    <Route path="/search" element={<SearchPage />} />
-                    <Route path="/analytics" element={<AnalyticsPage />} />
-                    <Route path="*" element={<HomePage />} />
-                  </Routes>
-                </main>
+                {/* Header */}
+                <Header />
                 
-                {/* Right Sidebar - Desktop only */}
-                <div className="right-sidebar">
-                  <div className="trending-panel">
-                    <h3 className="panel-title">Trending Topics</h3>
-                    {/* Trending topics will be populated here */}
+                {/* Main Layout */}
+                <div className="app-layout">
+                  {/* Sidebar - Hidden on mobile */}
+                  <div className="sidebar-container">
+                    <Sidebar />
                   </div>
                   
-                  <div className="stats-panel">
-                    <h3 className="panel-title">Platform Stats</h3>
-                    {/* Platform stats will be populated here */}
+                  {/* Main Content Area */}
+                  <main className="main-content">
+                    <Routes>
+                      <Route path="/" element={<HomePage />} />
+                      <Route path="/confession/:id" element={<ConfessionPage />} />
+                      <Route path="/user/:username" element={<UserProfile />} />
+                      <Route path="/search" element={<SearchPage />} />
+                      <Route path="/analytics" element={<AnalyticsPage />} />
+                      <Route path="*" element={<HomePage />} />
+                    </Routes>
+                  </main>
+                  
+                  {/* Right Sidebar - Desktop only */}
+                  <div className="right-sidebar">
+                    <div className="trending-panel">
+                      <h3 className="panel-title">Trending Topics</h3>
+                      {/* Trending topics will be populated here */}
+                    </div>
+                    
+                    <div className="stats-panel">
+                      <h3 className="panel-title">Platform Stats</h3>
+                      {/* Platform stats will be populated here */}
+                    </div>
                   </div>
                 </div>
+                
+                {/* Toast Notifications */}
+                <Toaster
+                  position="top-right"
+                  toastOptions={{
+                    duration: 4000,
+                    style: {
+                      background: 'var(--card)',
+                      color: 'var(--text)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                    },
+                    success: {
+                      style: {
+                        background: 'rgba(34, 197, 94, 0.1)',
+                        border: '1px solid rgba(34, 197, 94, 0.3)',
+                        color: 'var(--success)',
+                      },
+                    },
+                    error: {
+                      style: {
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        color: 'var(--error)',
+                      },
+                    },
+                  }}
+                />
               </div>
-              
-              {/* Toast Notifications */}
-              <Toaster
-                position="top-right"
-                toastOptions={{
-                  duration: 4000,
-                  style: {
-                    background: 'var(--card)',
-                    color: 'var(--text)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                  },
-                  success: {
-                    style: {
-                      background: 'rgba(34, 197, 94, 0.1)',
-                      border: '1px solid rgba(34, 197, 94, 0.3)',
-                      color: 'var(--success)',
-                    },
-                  },
-                  error: {
-                    style: {
-                      background: 'rgba(239, 68, 68, 0.1)',
-                      border: '1px solid rgba(239, 68, 68, 0.3)',
-                      color: 'var(--error)',
-                    },
-                  },
-                }}
-              />
-            </div>
-          </Router>
-        </WebSocketProvider>
-      </AuthProvider>
+            </Router>
+          </WebSocketProvider>
+        </AuthProvider>
+      </WalletProvider>
     </ThemeProvider>
   );
 }
