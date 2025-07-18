@@ -380,6 +380,117 @@ async def call_irys_service(request_data):
         print(f"Error calling Irys service: {str(e)}")
         return {"success": False, "error": str(e)}
 
+# Wallet Authentication Functions
+async def generate_wallet_challenge(wallet_address: str):
+    """Generate a challenge for wallet authentication"""
+    try:
+        # Create a unique challenge
+        challenge = secrets.token_hex(32)
+        message = f"Sign this message to authenticate with Irys Confession Board.\n\nWallet: {wallet_address}\nChallenge: {challenge}\nTimestamp: {int(time.time())}"
+        
+        # Store challenge in database with expiration
+        expires_at = datetime.utcnow() + timedelta(minutes=5)
+        await db.wallet_challenges.insert_one({
+            "wallet_address": wallet_address.lower(),
+            "challenge": challenge,
+            "message": message,
+            "expires_at": expires_at,
+            "used": False
+        })
+        
+        return {
+            "challenge": challenge,
+            "message": message,
+            "expires_at": expires_at
+        }
+    except Exception as e:
+        logging.error(f"Error generating wallet challenge: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to generate challenge")
+
+async def verify_wallet_signature(wallet_address: str, signature: str, message: str):
+    """Verify wallet signature against message"""
+    try:
+        # Normalize wallet address
+        wallet_address = wallet_address.lower()
+        
+        # Create message hash
+        message_hash = encode_defunct(text=message)
+        
+        # Recover address from signature
+        recovered_address = Account.recover_message(message_hash, signature=signature)
+        
+        # Compare addresses
+        return recovered_address.lower() == wallet_address
+    except Exception as e:
+        logging.error(f"Error verifying wallet signature: {str(e)}")
+        return False
+
+async def get_or_create_wallet_user(wallet_address: str, username: str = None, email: str = None):
+    """Get existing wallet user or create new one"""
+    try:
+        # Normalize wallet address
+        wallet_address = wallet_address.lower()
+        
+        # Check if user already exists with this wallet
+        existing_user = await db.users.find_one({"wallet_address": wallet_address})
+        if existing_user:
+            return existing_user
+        
+        # Generate username if not provided
+        if not username:
+            username = f"user_{wallet_address[-8:]}"
+            
+        # Check if username already exists
+        counter = 1
+        original_username = username
+        while await db.users.find_one({"username": username}):
+            username = f"{original_username}_{counter}"
+            counter += 1
+        
+        # Create new user
+        user_doc = {
+            "id": str(uuid.uuid4()),
+            "username": username,
+            "email": email,
+            "wallet_address": wallet_address,
+            "password_hash": None,  # Wallet users don't have passwords
+            "created_at": datetime.utcnow(),
+            "last_active": datetime.utcnow(),
+            "role": UserRole.USER,
+            "auth_type": "wallet",
+            "stats": {
+                "confession_count": 0,
+                "total_upvotes": 0,
+                "total_downvotes": 0,
+                "follower_count": 0,
+                "following_count": 0
+            },
+            "preferences": {
+                "theme": "dark",
+                "notifications": True,
+                "privacy_level": "public",
+                "email_notifications": True,
+                "crisis_support": True
+            },
+            "verification": {
+                "email_verified": False,
+                "wallet_verified": True,
+                "identity_verified": False
+            },
+            "reputation": {
+                "score": 0,
+                "level": "newcomer",
+                "badges": []
+            }
+        }
+        
+        await db.users.insert_one(user_doc)
+        return user_doc
+        
+    except Exception as e:
+        logging.error(f"Error creating wallet user: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create wallet user")
+
 # WebSocket endpoint
 @app.websocket("/ws/{user_id}")
 async def websocket_endpoint(websocket: WebSocket, user_id: str):
