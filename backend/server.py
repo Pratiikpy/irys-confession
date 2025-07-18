@@ -1,17 +1,26 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, BackgroundTasks, WebSocket, WebSocketDisconnect
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 from pathlib import Path
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from pydantic import BaseModel, Field, EmailStr, validator
+from typing import List, Optional, Dict, Any
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 import asyncio
 import json
 import subprocess
+import jwt
+from passlib.context import CryptContext
+import hashlib
+from emergentintegrations.llm.chat import LlmChat, UserMessage
+import re
+from enum import Enum
+from collections import defaultdict
+import time
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -21,17 +30,122 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
+# Security setup
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+security = HTTPBearer()
+JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key')
+JWT_ALGORITHM = "HS256"
+
+# Claude API configuration
+CLAUDE_API_KEY = os.environ.get('CLAUDE_API_KEY')
+CLAUDE_MODEL = os.environ.get('CLAUDE_MODEL', 'claude-3-5-sonnet-20241022')
+
 # Create the main app without a prefix
 app = FastAPI(title="Irys Confession Board API")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
-# Data Models
+# WebSocket manager for real-time features
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+        self.user_connections: Dict[str, WebSocket] = {}
+
+    async def connect(self, websocket: WebSocket, user_id: str = None):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+        if user_id:
+            self.user_connections[user_id] = websocket
+
+    def disconnect(self, websocket: WebSocket, user_id: str = None):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+        if user_id and user_id in self.user_connections:
+            del self.user_connections[user_id]
+
+    async def send_personal_message(self, message: str, user_id: str):
+        if user_id in self.user_connections:
+            await self.user_connections[user_id].send_text(message)
+
+    async def broadcast(self, message: str):
+        for connection in self.active_connections:
+            try:
+                await connection.send_text(message)
+            except:
+                pass
+
+manager = ConnectionManager()
+
+# Enums
+class UserRole(str, Enum):
+    USER = "user"
+    MODERATOR = "moderator"
+    ADMIN = "admin"
+
+class ModerationAction(str, Enum):
+    APPROVED = "approved"
+    FLAGGED = "flagged"
+    REMOVED = "removed"
+
+class CrisisLevel(str, Enum):
+    NONE = "none"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+# Enhanced Data Models
+class UserCreate(BaseModel):
+    username: str
+    email: Optional[EmailStr] = None
+    password: str
+    wallet_address: Optional[str] = None
+
+    @validator('username')
+    def validate_username(cls, v):
+        if len(v) < 3 or len(v) > 20:
+            raise ValueError('Username must be between 3 and 20 characters')
+        if not re.match(r'^[a-zA-Z0-9_]+$', v):
+            raise ValueError('Username can only contain letters, numbers, and underscores')
+        return v
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+class UserProfile(BaseModel):
+    username: str
+    email: Optional[str] = None
+    bio: Optional[str] = None
+    avatar_url: Optional[str] = None
+    created_at: datetime
+    stats: Dict[str, Any]
+    preferences: Dict[str, Any]
+    verification: Dict[str, bool]
+    reputation: Dict[str, Any]
+
+class UserPreferences(BaseModel):
+    theme: str = "dark"
+    notifications: bool = True
+    privacy_level: str = "public"
+    email_notifications: bool = True
+    crisis_support: bool = True
+
 class ConfessionCreate(BaseModel):
     content: str
     is_public: bool = True
     author: str = "anonymous"
+    mood: Optional[str] = None
+    tags: List[str] = []
+
+    @validator('content')
+    def validate_content(cls, v):
+        if len(v.strip()) == 0:
+            raise ValueError('Content cannot be empty')
+        if len(v) > 280:
+            raise ValueError('Content must be 280 characters or less')
+        return v.strip()
 
 class Confession(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -39,15 +153,175 @@ class Confession(BaseModel):
     content: str
     is_public: bool
     author: str
+    author_id: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     upvotes: int = 0
     downvotes: int = 0
+    reply_count: int = 0
+    view_count: int = 0
     gateway_url: str
     verified: bool = True
+    tags: List[str] = []
+    mood: Optional[str] = None
+    ai_analysis: Optional[Dict[str, Any]] = None
+    moderation: Optional[Dict[str, Any]] = None
+    crisis_level: CrisisLevel = CrisisLevel.NONE
+    
+class ReplyCreate(BaseModel):
+    content: str
+    parent_reply_id: Optional[str] = None
+
+    @validator('content')
+    def validate_content(cls, v):
+        if len(v.strip()) == 0:
+            raise ValueError('Reply content cannot be empty')
+        if len(v) > 280:
+            raise ValueError('Reply must be 280 characters or less')
+        return v.strip()
+
+class Reply(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    confession_id: str
+    parent_reply_id: Optional[str] = None
+    content: str
+    author: str
+    author_id: Optional[str] = None
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    upvotes: int = 0
+    downvotes: int = 0
+    tx_id: Optional[str] = None
+    verified: bool = False
+    ai_analysis: Optional[Dict[str, Any]] = None
+    moderation: Optional[Dict[str, Any]] = None
+    crisis_level: CrisisLevel = CrisisLevel.NONE
 
 class VoteRequest(BaseModel):
     vote_type: str  # 'upvote' or 'downvote'
     user_address: str = "anonymous"
+
+class SearchRequest(BaseModel):
+    query: Optional[str] = None
+    mood: Optional[str] = None
+    tags: List[str] = []
+    author: Optional[str] = None
+    date_from: Optional[datetime] = None
+    date_to: Optional[datetime] = None
+    sort_by: str = "timestamp"  # timestamp, upvotes, replies
+    order: str = "desc"  # asc, desc
+
+# Utility functions
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    return encoded_jwt
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    try:
+        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+        user = await db.users.find_one({"username": username})
+        if user is None:
+            raise HTTPException(status_code=401, detail="User not found")
+        return user
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+
+async def get_current_user_optional(authorization: Optional[str] = Header(None)):
+    if not authorization:
+        return None
+    try:
+        token = authorization.replace("Bearer ", "")
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            return None
+        user = await db.users.find_one({"username": username})
+        return user
+    except:
+        return None
+
+# AI Analysis Functions
+async def analyze_content_with_claude(content: str, analysis_type: str = "moderation"):
+    """Analyze content using Claude API"""
+    try:
+        session_id = f"analysis_{int(time.time())}"
+        
+        if analysis_type == "moderation":
+            system_message = """You are a content moderation AI. Analyze the given confession for:
+1. Toxicity (hate speech, bullying, harassment)
+2. Spam/promotional content
+3. Personal information disclosure
+4. Crisis indicators (self-harm, suicide ideation)
+5. Content appropriateness
+
+Respond with JSON format:
+{
+  "toxic": boolean,
+  "spam": boolean,
+  "personal_info": boolean,
+  "crisis_level": "none|low|medium|high|critical",
+  "crisis_keywords": ["keyword1", "keyword2"],
+  "recommended_action": "approve|flag|remove",
+  "confidence": 0.0-1.0,
+  "reasoning": "Brief explanation",
+  "support_resources": boolean
+}"""
+        
+        elif analysis_type == "enhancement":
+            system_message = """You are a content enhancement AI. Analyze the confession and provide:
+1. Mood detection
+2. Auto-generated tags
+3. Similar content matching keywords
+4. Viral potential score
+
+Respond with JSON format:
+{
+  "mood": "happy|sad|anxious|angry|excited|frustrated|hopeful|neutral",
+  "tags": ["tag1", "tag2", "tag3"],
+  "keywords": ["keyword1", "keyword2"],
+  "viral_score": 0.0-1.0,
+  "engagement_prediction": "low|medium|high",
+  "category": "personal|relationship|work|health|social|other"
+}"""
+        
+        chat = LlmChat(
+            api_key=CLAUDE_API_KEY,
+            session_id=session_id,
+            system_message=system_message
+        ).with_model("anthropic", CLAUDE_MODEL)
+        
+        user_message = UserMessage(text=f"Analyze this confession: {content}")
+        response = await chat.send_message(user_message)
+        
+        # Parse JSON response
+        try:
+            return json.loads(response.strip())
+        except json.JSONDecodeError:
+            # Fallback if JSON parsing fails
+            return {
+                "error": "Failed to parse AI response",
+                "raw_response": response
+            }
+        
+    except Exception as e:
+        logging.error(f"Claude analysis failed: {str(e)}")
+        return {
+            "error": str(e),
+            "analysis_type": analysis_type
+        }
 
 # Irys Service Helper
 async def call_irys_service(request_data):
@@ -85,262 +359,309 @@ async def call_irys_service(request_data):
         print(f"Error calling Irys service: {str(e)}")
         return {"success": False, "error": str(e)}
 
+# WebSocket endpoint
+@app.websocket("/ws/{user_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: str):
+    await manager.connect(websocket, user_id)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await manager.send_personal_message(f"Message: {data}", user_id)
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, user_id)
+
 # API Routes
 @api_router.get("/")
 async def root():
-    return {"message": "Irys Confession Board API", "status": "running"}
+    return {"message": "Irys Confession Board API", "status": "running", "version": "2.0"}
 
 @api_router.get("/health")
 async def health_check():
     return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
 
-@api_router.get("/irys/network-info")
-async def get_irys_network_info():
-    """Get Irys network configuration"""
-    return {
-        "network": "devnet",
-        "gateway_url": "https://devnet.irys.xyz",
-        "rpc_url": "https://rpc.devnet.irys.xyz/v1",
-        "explorer_url": "https://devnet.irys.xyz",
-        "faucet_url": "https://faucet.devnet.irys.xyz"
-    }
-
-@api_router.post("/irys/upload")
-async def upload_to_irys(data: dict):
-    """Upload confession data to Irys"""
+# User Authentication Routes
+@api_router.post("/auth/register")
+async def register_user(user: UserCreate):
+    """Register a new user"""
     try:
-        request_data = {
-            "action": "upload",
-            "data": data.get("data"),
-            "tags": data.get("tags", [])
+        # Check if username already exists
+        existing_user = await db.users.find_one({"username": user.username})
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Username already exists")
+        
+        # Check if email already exists
+        if user.email:
+            existing_email = await db.users.find_one({"email": user.email})
+            if existing_email:
+                raise HTTPException(status_code=400, detail="Email already registered")
+        
+        # Create user document
+        user_doc = {
+            "id": str(uuid.uuid4()),
+            "username": user.username,
+            "email": user.email,
+            "password_hash": get_password_hash(user.password),
+            "wallet_address": user.wallet_address,
+            "created_at": datetime.utcnow(),
+            "last_active": datetime.utcnow(),
+            "role": UserRole.USER,
+            "stats": {
+                "confession_count": 0,
+                "total_upvotes": 0,
+                "total_downvotes": 0,
+                "follower_count": 0,
+                "following_count": 0
+            },
+            "preferences": {
+                "theme": "dark",
+                "notifications": True,
+                "privacy_level": "public",
+                "email_notifications": True,
+                "crisis_support": True
+            },
+            "verification": {
+                "email_verified": False,
+                "wallet_verified": bool(user.wallet_address),
+                "identity_verified": False
+            },
+            "reputation": {
+                "score": 0,
+                "level": "newcomer",
+                "badges": []
+            }
         }
         
-        result = await call_irys_service(request_data)
+        # Insert user into database
+        await db.users.insert_one(user_doc)
         
-        if result.get("success"):
-            return {
-                "tx_id": result.get("tx_id"),
-                "gateway_url": result.get("gateway_url"),
-                "explorer_url": result.get("explorer_url"),
-                "timestamp": result.get("timestamp"),
-                "verified": True
+        # Create access token
+        access_token = create_access_token(
+            data={"sub": user.username},
+            expires_delta=timedelta(days=30)
+        )
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": user_doc["id"],
+                "username": user_doc["username"],
+                "email": user_doc["email"],
+                "created_at": user_doc["created_at"],
+                "stats": user_doc["stats"],
+                "preferences": user_doc["preferences"]
             }
-        else:
-            raise HTTPException(status_code=400, detail=result.get("error"))
-            
+        }
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@api_router.get("/irys/balance")
-async def get_irys_balance():
-    """Get account balance on Irys"""
+@api_router.post("/auth/login")
+async def login_user(user: UserLogin):
+    """Login user"""
     try:
-        result = await call_irys_service({"action": "balance"})
-        return result
+        # Find user by username
+        db_user = await db.users.find_one({"username": user.username})
+        if not db_user:
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+        
+        # Verify password
+        if not verify_password(user.password, db_user["password_hash"]):
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+        
+        # Update last active
+        await db.users.update_one(
+            {"username": user.username},
+            {"$set": {"last_active": datetime.utcnow()}}
+        )
+        
+        # Create access token
+        access_token = create_access_token(
+            data={"sub": user.username},
+            expires_delta=timedelta(days=30)
+        )
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": db_user["id"],
+                "username": db_user["username"],
+                "email": db_user.get("email"),
+                "stats": db_user["stats"],
+                "preferences": db_user["preferences"]
+            }
+        }
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@api_router.get("/irys/address")
-async def get_irys_address():
-    """Get Irys wallet address"""
+@api_router.get("/auth/me")
+async def get_current_user_profile(current_user: dict = Depends(get_current_user)):
+    """Get current user profile"""
+    return {
+        "id": current_user["id"],
+        "username": current_user["username"],
+        "email": current_user.get("email"),
+        "bio": current_user.get("bio"),
+        "avatar_url": current_user.get("avatar_url"),
+        "created_at": current_user["created_at"],
+        "stats": current_user["stats"],
+        "preferences": current_user["preferences"],
+        "verification": current_user["verification"],
+        "reputation": current_user["reputation"]
+    }
+
+@api_router.put("/auth/preferences")
+async def update_user_preferences(
+    preferences: UserPreferences,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update user preferences"""
     try:
-        result = await call_irys_service({"action": "address"})
-        return result
+        await db.users.update_one(
+            {"username": current_user["username"]},
+            {"$set": {"preferences": preferences.dict()}}
+        )
+        return {"message": "Preferences updated successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# Confession Routes
 @api_router.post("/confessions")
-async def create_confession(confession: ConfessionCreate):
-    """Create a new confession and upload to Irys"""
+async def create_confession(
+    confession: ConfessionCreate,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user_optional)
+):
+    """Create a new confession with AI analysis"""
     try:
-        # Validate confession content
-        if not confession.content.strip():
-            raise HTTPException(status_code=400, detail="Confession content cannot be empty")
+        # Determine author
+        author = current_user["username"] if current_user else "anonymous"
+        author_id = current_user["id"] if current_user else None
         
-        if len(confession.content) > 280:
-            raise HTTPException(status_code=400, detail="Confession must be 280 characters or less")
+        # AI Content Analysis
+        moderation_analysis = await analyze_content_with_claude(confession.content, "moderation")
+        enhancement_analysis = await analyze_content_with_claude(confession.content, "enhancement")
         
-        # Prepare data for Irys upload
+        # Handle crisis detection
+        crisis_level = moderation_analysis.get("crisis_level", "none")
+        if crisis_level in ["high", "critical"]:
+            # Send crisis support resources
+            if current_user and current_user.get("preferences", {}).get("crisis_support", True):
+                await manager.send_personal_message(
+                    json.dumps({
+                        "type": "crisis_support",
+                        "resources": {
+                            "hotline": "988 - Suicide & Crisis Lifeline",
+                            "chat": "https://suicidepreventionlifeline.org/chat/",
+                            "text": "Text HOME to 741741"
+                        }
+                    }),
+                    current_user["id"]
+                )
+        
+        # Check if content should be auto-moderated
+        if moderation_analysis.get("recommended_action") == "remove":
+            raise HTTPException(
+                status_code=400,
+                detail="Content violates community guidelines"
+            )
+        
+        # Prepare confession data
         confession_data = {
             "content": confession.content,
             "is_public": confession.is_public,
             "timestamp": datetime.utcnow().isoformat(),
-            "author": confession.author
+            "author": author,
+            "mood": enhancement_analysis.get("mood", confession.mood),
+            "tags": list(set(confession.tags + enhancement_analysis.get("tags", []))),
+            "ai_analysis": {
+                "moderation": moderation_analysis,
+                "enhancement": enhancement_analysis
+            }
         }
         
-        # Prepare tags for Irys
-        tags = [
+        # Upload to Irys
+        irys_tags = [
             {"name": "Content-Type", "value": "confession"},
             {"name": "Public", "value": str(confession.is_public).lower()},
-            {"name": "App", "value": "ZK-Confession"},
+            {"name": "App", "value": "Irys-Confession-Board"},
+            {"name": "Author", "value": author},
+            {"name": "Mood", "value": confession_data["mood"] or "neutral"},
             {"name": "Timestamp", "value": str(int(datetime.utcnow().timestamp()))}
         ]
         
-        # Upload to Irys
         irys_result = await call_irys_service({
             "action": "upload",
             "data": confession_data,
-            "tags": tags
+            "tags": irys_tags
         })
         
         if not irys_result.get("success"):
             raise HTTPException(status_code=500, detail=f"Failed to upload to Irys: {irys_result.get('error')}")
         
-        # Store confession metadata in database
+        # Store confession in database
         confession_doc = {
             "id": str(uuid.uuid4()),
             "tx_id": irys_result["tx_id"],
             "content": confession.content,
             "is_public": confession.is_public,
-            "author": confession.author,
+            "author": author,
+            "author_id": author_id,
             "timestamp": datetime.utcnow(),
             "verified": True,
             "gateway_url": irys_result["gateway_url"],
             "upvotes": 0,
-            "downvotes": 0
+            "downvotes": 0,
+            "reply_count": 0,
+            "view_count": 0,
+            "tags": confession_data["tags"],
+            "mood": confession_data["mood"],
+            "ai_analysis": confession_data["ai_analysis"],
+            "crisis_level": crisis_level,
+            "moderation": {
+                "flagged": moderation_analysis.get("recommended_action") == "flag",
+                "reviewed": False,
+                "approved": moderation_analysis.get("recommended_action") == "approve"
+            }
         }
         
-        # Insert into database
         await db.confessions.insert_one(confession_doc)
+        
+        # Update user stats
+        if current_user:
+            await db.users.update_one(
+                {"id": current_user["id"]},
+                {"$inc": {"stats.confession_count": 1}}
+            )
+        
+        # Broadcast new confession to connected users
+        if confession.is_public:
+            await manager.broadcast(json.dumps({
+                "type": "new_confession",
+                "confession": {
+                    "id": confession_doc["id"],
+                    "content": confession_doc["content"],
+                    "author": confession_doc["author"],
+                    "timestamp": confession_doc["timestamp"].isoformat(),
+                    "upvotes": confession_doc["upvotes"],
+                    "mood": confession_doc["mood"],
+                    "tags": confession_doc["tags"]
+                }
+            }))
         
         return {
             "status": "success",
             "id": confession_doc["id"],
             "tx_id": irys_result["tx_id"],
             "gateway_url": irys_result["gateway_url"],
-            "share_url": f"/#/c/{irys_result['tx_id']}" + ("" if confession.is_public else f"#{confession.author}"),
+            "share_url": f"/#/c/{irys_result['tx_id']}" + ("" if confession.is_public else f"#{author}"),
             "verified": True,
+            "ai_analysis": confession_data["ai_analysis"],
+            "crisis_support": crisis_level in ["high", "critical"],
             "message": "Confession posted successfully!"
         }
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-@api_router.get("/confessions/public")
-async def get_public_confessions(limit: int = 50, offset: int = 0):
-    """Get public confessions feed"""
-    try:
-        # Query database for public confessions
-        cursor = db.confessions.find(
-            {"is_public": True},
-            {"_id": 0}
-        ).sort("timestamp", -1).skip(offset).limit(limit)
-        
-        confessions = await cursor.to_list(length=limit)
-        
-        return {
-            "confessions": confessions,
-            "count": len(confessions),
-            "offset": offset,
-            "limit": limit
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@api_router.get("/confessions/{tx_id}")
-async def get_confession(tx_id: str):
-    """Get specific confession by transaction ID"""
-    try:
-        # First check our database
-        confession = await db.confessions.find_one(
-            {"tx_id": tx_id},
-            {"_id": 0}
-        )
-        
-        if not confession:
-            raise HTTPException(status_code=404, detail="Confession not found")
-        
-        return confession
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@api_router.post("/confessions/{tx_id}/vote")
-async def vote_confession(tx_id: str, vote_request: VoteRequest):
-    """Vote on a confession"""
-    try:
-        if vote_request.vote_type not in ["upvote", "downvote"]:
-            raise HTTPException(status_code=400, detail="Invalid vote type")
-        
-        # Check if confession exists
-        confession = await db.confessions.find_one({"tx_id": tx_id})
-        if not confession:
-            raise HTTPException(status_code=404, detail="Confession not found")
-        
-        # Check if user already voted
-        existing_vote = await db.votes.find_one({
-            "tx_id": tx_id,
-            "user_address": vote_request.user_address
-        })
-        
-        if existing_vote:
-            raise HTTPException(status_code=400, detail="User already voted")
-        
-        # Record vote
-        vote_doc = {
-            "id": str(uuid.uuid4()),
-            "tx_id": tx_id,
-            "user_address": vote_request.user_address,
-            "vote_type": vote_request.vote_type,
-            "timestamp": datetime.utcnow()
-        }
-        
-        await db.votes.insert_one(vote_doc)
-        
-        # Update confession vote count
-        update_field = "upvotes" if vote_request.vote_type == "upvote" else "downvotes"
-        await db.confessions.update_one(
-            {"tx_id": tx_id},
-            {"$inc": {update_field: 1}}
-        )
-        
-        return {"status": "success", "message": f"{vote_request.vote_type} recorded"}
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@api_router.get("/trending")
-async def get_trending_confessions(limit: int = 20):
-    """Get trending confessions (most upvoted)"""
-    try:
-        cursor = db.confessions.find(
-            {"is_public": True},
-            {"_id": 0}
-        ).sort("upvotes", -1).limit(limit)
-        
-        confessions = await cursor.to_list(length=limit)
-        
-        return {
-            "confessions": confessions,
-            "count": len(confessions)
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# Include the router in the main app
-app.include_router(api_router)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
