@@ -16,6 +16,8 @@ class IrysService {
                 throw new Error('IRYS_PRIVATE_KEY not found in environment');
             }
 
+            console.log('🔄 Initializing Irys with devnet...');
+            
             // Initialize Irys with devnet (free uploads)
             this.irys = new Irys({
                 url: "https://devnet.irys.xyz",
@@ -23,6 +25,9 @@ class IrysService {
                 key: privateKey,
             });
 
+            // Wait for initialization to complete
+            await this.irys.ready();
+            
             console.log('✅ Irys initialized successfully');
             this.initialized = true;
             return { success: true, message: 'Irys service initialized' };
