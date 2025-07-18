@@ -31,6 +31,10 @@ class IrysConfessionAPITester:
         self.access_token = None
         self.user_id = None
         self.created_reply_id = None
+        # Wallet authentication variables
+        self.wallet_challenge = None
+        self.wallet_message = None
+        self.test_wallet_address = None
 
     def log_test(self, test_name, success, details=""):
         """Log test results"""
