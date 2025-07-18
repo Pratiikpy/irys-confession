@@ -253,7 +253,9 @@ class ClaudeAPIFailureTest:
         
         created_count = 0
         for i, confession_data in enumerate(confessions_to_create):
-            response, success = self.make_request('POST', 'confessions', data=confession_data, auth=True, expected_status=200)
+            # Use auth if available, otherwise anonymous
+            use_auth = self.access_token is not None
+            response, success = self.make_request('POST', 'confessions', data=confession_data, auth=use_auth, expected_status=200)
             
             if success and response:
                 try:
