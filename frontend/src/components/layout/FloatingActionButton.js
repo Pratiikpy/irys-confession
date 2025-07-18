@@ -91,6 +91,7 @@ const FloatingActionButton = ({ onNewConfession }) => {
       <ComposeModal
         isOpen={showCompose}
         onClose={() => setShowCompose(false)}
+        onSubmit={onNewConfession}
       />
     </>
   );
