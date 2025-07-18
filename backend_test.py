@@ -42,10 +42,14 @@ class IrysConfessionAPITester:
             print(f"❌ {test_name} - FAILED {details}")
         return success
 
-    def make_request(self, method, endpoint, data=None, expected_status=200):
+    def make_request(self, method, endpoint, data=None, expected_status=200, auth=False):
         """Make HTTP request and return response"""
         url = f"{self.base_url}/{endpoint}"
         headers = {'Content-Type': 'application/json'}
+        
+        # Add authorization header if needed
+        if auth and self.access_token:
+            headers['Authorization'] = f'Bearer {self.access_token}'
         
         try:
             if method == 'GET':
