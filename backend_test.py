@@ -11,7 +11,7 @@ from datetime import datetime
 import time
 
 class IrysConfessionAPITester:
-    def __init__(self, base_url="https://f437817d-b786-415a-aa8e-8e182611224b.preview.emergentagent.com/api"):
+    def __init__(self, base_url="https://07dc0b05-7562-4f0a-a3bf-31a5cb981e46.preview.emergentagent.com/api"):
         self.base_url = base_url
         self.tests_run = 0
         self.tests_passed = 0
