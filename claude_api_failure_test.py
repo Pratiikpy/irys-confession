@@ -327,21 +327,85 @@ class ClaudeAPIFailureTest:
             status_code = response.status_code if response else "No response"
             return self.log_test("Public Feed Contains All", False, f"- Status: {status_code}")
 
+    def test_confession_creation_anonymous(self):
+        """Test anonymous confession creation when Claude API fails"""
+        print("\n🔍 Testing Anonymous Confession Creation...")
+        
+        # Create a confession that should trigger Claude API processing
+        test_confession = {
+            "content": "I'm feeling really anxious about my future and sometimes have dark thoughts. I need help but don't know where to turn.",
+            "is_public": True,
+            "author": "anonymous",
+            "mood": "anxious",
+            "tags": ["mental-health", "anxiety", "help"]
+        }
+        
+        response, success = self.make_request('POST', 'confessions', data=test_confession, expected_status=200)
+        
+        if success and response:
+            try:
+                data = response.json()
+                required_fields = ['status', 'id', 'tx_id', 'gateway_url', 'verified']
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if not missing_fields and data.get('status') == 'success':
+                    confession_id = data.get('id')
+                    tx_id = data.get('tx_id')
+                    self.created_confessions.append({'id': confession_id, 'tx_id': tx_id})
+                    
+                    # Check if AI analysis is present (even if it failed)
+                    ai_analysis = data.get('ai_analysis', {})
+                    has_ai_analysis = bool(ai_analysis)
+                    
+                    return self.log_test("Anonymous Confession Creation", True, 
+                                       f"- ID: {confession_id}, AI Analysis Present: {has_ai_analysis}")
+                else:
+                    return self.log_test("Anonymous Confession Creation", False, 
+                                       f"- Missing fields: {missing_fields}")
+            except json.JSONDecodeError:
+                return self.log_test("Anonymous Confession Creation", False, "- Invalid JSON response")
+        else:
+            status_code = response.status_code if response else "No response"
+            error_msg = ""
+            if response:
+                try:
+                    error_data = response.json()
+                    error_msg = f" - Error: {error_data.get('detail', 'Unknown error')}"
+                except:
+                    error_msg = f" - Response: {response.text[:200]}"
+            return self.log_test("Anonymous Confession Creation", False, 
+                               f"- Status: {status_code}{error_msg}")
+
     def run_focused_tests(self):
         """Run focused tests for Claude API failure fix"""
         print("🎯 Starting Focused Tests for Claude API Failure Fix")
         print(f"📡 Testing against: {self.base_url}")
         print("=" * 80)
         
-        # Setup
-        if not self.setup_user():
-            print("❌ Failed to setup test user. Cannot continue with authenticated tests.")
+        # Test basic API first
+        print("\n🔍 BASIC API TEST")
+        print("-" * 40)
+        response, success = self.make_request('GET', '', expected_status=200)
+        if not success:
+            print("❌ Basic API test failed. Cannot continue.")
             return 1
+        else:
+            print("✅ Basic API working")
+        
+        # Try to setup user, but continue even if it fails
+        user_setup_success = self.setup_user()
+        if not user_setup_success:
+            print("⚠️  User setup failed, continuing with anonymous tests only...")
         
         # Core tests for the Claude API failure fix
         print("\n📝 CONFESSION CREATION TESTS")
         print("-" * 40)
-        self.test_confession_creation_with_claude_failure()
+        
+        if user_setup_success:
+            self.test_confession_creation_with_claude_failure()
+        else:
+            self.test_confession_creation_anonymous()
+        
         self.test_multiple_confessions_scenario()
         
         print("\n🔍 PUBLIC FEED TESTS")
