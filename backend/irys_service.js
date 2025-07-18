@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { Irys } = require("@irys/sdk");
+const Irys = require("@irys/sdk").default;
 require('dotenv').config();
 
 class IrysService {
