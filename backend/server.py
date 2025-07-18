@@ -624,9 +624,10 @@ async def create_confession(
             "ai_analysis": confession_data["ai_analysis"],
             "crisis_level": crisis_level,
             "moderation": {
-                "flagged": moderation_analysis.get("recommended_action") == "flag",
+                "flagged": not claude_api_failed and moderation_analysis.get("recommended_action") == "flag",
                 "reviewed": False,
-                "approved": moderation_analysis.get("recommended_action") == "approve"
+                "approved": claude_api_failed or moderation_analysis.get("recommended_action") == "approve",
+                "claude_api_failed": claude_api_failed
             }
         }
         
