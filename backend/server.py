@@ -711,8 +711,8 @@ async def create_reply(
                     current_user["id"]
                 )
         
-        # Check if content should be auto-moderated
-        if moderation_analysis.get("recommended_action") == "remove":
+        # Check if content should be auto-moderated (only if Claude API worked)
+        if not claude_api_failed and moderation_analysis.get("recommended_action") == "remove":
             raise HTTPException(
                 status_code=400,
                 detail="Reply violates community guidelines"
