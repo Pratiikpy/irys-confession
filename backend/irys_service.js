@@ -23,6 +23,9 @@ class IrysService {
                 url: "https://devnet.irys.xyz",
                 token: "ethereum",
                 key: privateKey,
+                config: {
+                    rpc: "https://rpc.ankr.com/eth_sepolia"
+                }
             });
 
             // Wait for initialization to complete
