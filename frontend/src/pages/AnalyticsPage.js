@@ -309,7 +309,7 @@ const AnalyticsPage = () => {
               </div>
               <div className="health-content">
                 <div className="health-label">API Response</div>
-                <div className="health-value">< 100ms</div>
+                <div className="health-value">&lt; 100ms</div>
               </div>
             </div>
             
