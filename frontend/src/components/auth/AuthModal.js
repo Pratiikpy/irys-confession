@@ -146,193 +146,279 @@ const AuthModal = ({ isOpen, onClose }) => {
         {/* Header */}
         <div className="modal-header">
           <h2 className="modal-title">
-            {mode === 'login' ? 'Welcome Back' : 'Join Irys Confessions'}
+            {mode === 'choose' ? 'Welcome to Irys Confessions' : 
+             mode === 'login' ? 'Welcome Back' : 
+             mode === 'register' ? 'Join Irys Confessions' : 
+             'Connect Wallet'}
           </h2>
           <button onClick={onClose} className="modal-close">
             <X size={20} />
           </button>
         </div>
 
-        {/* Mode Tabs */}
-        <div className="auth-tabs">
-          <button
-            onClick={() => setMode('login')}
-            className={`auth-tab ${mode === 'login' ? 'active' : ''}`}
-          >
-            Sign In
-          </button>
-          <button
-            onClick={() => setMode('register')}
-            className={`auth-tab ${mode === 'register' ? 'active' : ''}`}
-          >
-            Sign Up
-          </button>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="auth-form">
-          {/* Username Field */}
-          <div className="form-group">
-            <label htmlFor="username" className="form-label">
-              <User size={16} />
-              Username
-            </label>
-            <input
-              type="text"
-              id="username"
-              value={formData.username}
-              onChange={(e) => handleInputChange('username', e.target.value)}
-              className={`form-input ${errors.username ? 'error' : ''}`}
-              placeholder="Enter your username"
-              disabled={loading}
-            />
-            {errors.username && (
-              <span className="error-message">{errors.username}</span>
-            )}
-          </div>
-
-          {/* Email Field (Registration only) */}
-          {mode === 'register' && (
-            <div className="form-group">
-              <label htmlFor="email" className="form-label">
-                <Mail size={16} />
-                Email (Optional)
-              </label>
-              <input
-                type="email"
-                id="email"
-                value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                className={`form-input ${errors.email ? 'error' : ''}`}
-                placeholder="Enter your email"
-                disabled={loading}
-              />
-              {errors.email && (
-                <span className="error-message">{errors.email}</span>
-              )}
-            </div>
-          )}
-
-          {/* Password Field */}
-          <div className="form-group">
-            <label htmlFor="password" className="form-label">
-              <Lock size={16} />
-              Password
-            </label>
-            <div className="password-input-container">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                id="password"
-                value={formData.password}
-                onChange={(e) => handleInputChange('password', e.target.value)}
-                className={`form-input ${errors.password ? 'error' : ''}`}
-                placeholder="Enter your password"
-                disabled={loading}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="password-toggle"
-                disabled={loading}
+        {/* Choose Auth Method */}
+        {mode === 'choose' && (
+          <div className="auth-choice-container">
+            <p className="auth-choice-description">
+              Choose how you'd like to access your account
+            </p>
+            
+            <div className="auth-choice-options">
+              {/* Wallet Connection Option */}
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setMode('wallet')}
+                className="auth-choice-option primary"
               >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                <div className="auth-choice-icon">
+                  <Wallet size={24} />
+                </div>
+                <div className="auth-choice-content">
+                  <h3>Connect Wallet</h3>
+                  <p>Sign in with MetaMask, Coinbase, or other Web3 wallets</p>
+                  <div className="auth-choice-benefits">
+                    <span className="benefit-tag">🔒 Most Secure</span>
+                    <span className="benefit-tag">⚡ Instant</span>
+                  </div>
+                </div>
+              </motion.button>
+
+              {/* Email/Password Option */}
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setMode('login')}
+                className="auth-choice-option secondary"
+              >
+                <div className="auth-choice-icon">
+                  <Mail size={24} />
+                </div>
+                <div className="auth-choice-content">
+                  <h3>Email & Password</h3>
+                  <p>Use traditional email and password authentication</p>
+                  <div className="auth-choice-benefits">
+                    <span className="benefit-tag">👤 Familiar</span>
+                    <span className="benefit-tag">📧 Optional Email</span>
+                  </div>
+                </div>
+              </motion.button>
+            </div>
+
+            <div className="auth-features">
+              <div className="feature-item">
+                <CheckCircle size={14} />
+                <span>Anonymous confessions</span>
+              </div>
+              <div className="feature-item">
+                <CheckCircle size={14} />
+                <span>Permanent blockchain storage</span>
+              </div>
+              <div className="feature-item">
+                <CheckCircle size={14} />
+                <span>AI-powered safety features</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Wallet Connection */}
+        {mode === 'wallet' && (
+          <div className="wallet-auth-container">
+            <div className="mb-4">
+              <button
+                onClick={() => setMode('choose')}
+                className="back-button"
+              >
+                ← Back to options
               </button>
             </div>
-            {errors.password && (
-              <span className="error-message">{errors.password}</span>
-            )}
+            <WalletConnection
+              onSuccess={handleWalletSuccess}
+              onClose={() => setMode('choose')}
+              mode="auth"
+            />
           </div>
+        )}
 
-          {/* Confirm Password Field (Registration only) */}
-          {mode === 'register' && (
-            <div className="form-group">
-              <label htmlFor="confirmPassword" className="form-label">
-                <Lock size={16} />
-                Confirm Password
-              </label>
-              <div className="password-input-container">
+        {/* Traditional Auth Form */}
+        {(mode === 'login' || mode === 'register') && (
+          <>
+            <div className="mb-4">
+              <button
+                onClick={() => setMode('choose')}
+                className="back-button"
+              >
+                ← Back to options
+              </button>
+            </div>
+
+            {/* Mode Tabs */}
+            <div className="auth-tabs">
+              <button
+                onClick={() => setMode('login')}
+                className={`auth-tab ${mode === 'login' ? 'active' : ''}`}
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => setMode('register')}
+                className={`auth-tab ${mode === 'register' ? 'active' : ''}`}
+              >
+                Sign Up
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="auth-form">
+              {/* Username Field */}
+              <div className="form-group">
+                <label htmlFor="username" className="form-label">
+                  <User size={16} />
+                  Username
+                </label>
                 <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  id="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                  className={`form-input ${errors.confirmPassword ? 'error' : ''}`}
-                  placeholder="Confirm your password"
+                  type="text"
+                  id="username"
+                  value={formData.username}
+                  onChange={(e) => handleInputChange('username', e.target.value)}
+                  className={`form-input ${errors.username ? 'error' : ''}`}
+                  placeholder="Enter your username"
                   disabled={loading}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="password-toggle"
-                  disabled={loading}
-                >
-                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
+                {errors.username && (
+                  <span className="error-message">{errors.username}</span>
+                )}
               </div>
-              {errors.confirmPassword && (
-                <span className="error-message">{errors.confirmPassword}</span>
-              )}
-            </div>
-          )}
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            className="auth-submit"
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <Loader size={16} className="spinner" />
-                {mode === 'login' ? 'Signing In...' : 'Creating Account...'}
-              </>
-            ) : (
-              <>
-                {mode === 'login' ? (
+              {/* Email Field (Registration only) */}
+              {mode === 'register' && (
+                <div className="form-group">
+                  <label htmlFor="email" className="form-label">
+                    <Mail size={16} />
+                    Email (Optional)
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    className={`form-input ${errors.email ? 'error' : ''}`}
+                    placeholder="Enter your email"
+                    disabled={loading}
+                  />
+                  {errors.email && (
+                    <span className="error-message">{errors.email}</span>
+                  )}
+                </div>
+              )}
+
+              {/* Password Field */}
+              <div className="form-group">
+                <label htmlFor="password" className="form-label">
+                  <Lock size={16} />
+                  Password
+                </label>
+                <div className="password-input-container">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    id="password"
+                    value={formData.password}
+                    onChange={(e) => handleInputChange('password', e.target.value)}
+                    className={`form-input ${errors.password ? 'error' : ''}`}
+                    placeholder="Enter your password"
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="password-toggle"
+                    disabled={loading}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                {errors.password && (
+                  <span className="error-message">{errors.password}</span>
+                )}
+              </div>
+
+              {/* Confirm Password Field (Registration only) */}
+              {mode === 'register' && (
+                <div className="form-group">
+                  <label htmlFor="confirmPassword" className="form-label">
+                    <Lock size={16} />
+                    Confirm Password
+                  </label>
+                  <div className="password-input-container">
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      id="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                      className={`form-input ${errors.confirmPassword ? 'error' : ''}`}
+                      placeholder="Confirm your password"
+                      disabled={loading}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="password-toggle"
+                      disabled={loading}
+                    >
+                      {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  {errors.confirmPassword && (
+                    <span className="error-message">{errors.confirmPassword}</span>
+                  )}
+                </div>
+              )}
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                className="auth-submit"
+                disabled={loading}
+              >
+                {loading ? (
                   <>
-                    <User size={16} />
-                    Sign In
+                    <Loader size={16} className="spinner" />
+                    {mode === 'login' ? 'Signing In...' : 'Creating Account...'}
                   </>
                 ) : (
                   <>
-                    <CheckCircle size={16} />
-                    Create Account
+                    {mode === 'login' ? (
+                      <>
+                        <User size={16} />
+                        Sign In
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle size={16} />
+                        Create Account
+                      </>
+                    )}
                   </>
                 )}
-              </>
-            )}
-          </button>
-        </form>
+              </button>
+            </form>
 
-        {/* Footer */}
-        <div className="auth-footer">
-          <p className="auth-switch">
-            {mode === 'login' ? "Don't have an account?" : "Already have an account?"}
-            <button
-              onClick={switchMode}
-              className="auth-switch-button"
-              disabled={loading}
-            >
-              {mode === 'login' ? 'Sign Up' : 'Sign In'}
-            </button>
-          </p>
-        </div>
-
-        {/* Features */}
-        <div className="auth-features">
-          <div className="feature-item">
-            <CheckCircle size={14} />
-            <span>Anonymous confessions</span>
-          </div>
-          <div className="feature-item">
-            <CheckCircle size={14} />
-            <span>Permanent blockchain storage</span>
-          </div>
-          <div className="feature-item">
-            <CheckCircle size={14} />
-            <span>AI-powered safety features</span>
-          </div>
-        </div>
+            {/* Footer */}
+            <div className="auth-footer">
+              <p className="auth-switch">
+                {mode === 'login' ? "Don't have an account?" : "Already have an account?"}
+                <button
+                  onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}
+                  className="auth-switch-button"
+                  disabled={loading}
+                >
+                  {mode === 'login' ? 'Sign Up' : 'Sign In'}
+                </button>
+              </p>
+            </div>
+          </>
+        )}
       </motion.div>
     </Modal>
   );
