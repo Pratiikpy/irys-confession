@@ -692,6 +692,9 @@ async def create_reply(
         # AI Content Analysis
         moderation_analysis = await analyze_content_with_claude(reply.content, "moderation")
         
+        # Check if Claude API failed (indicated by 'error' key in response)
+        claude_api_failed = moderation_analysis.get("error") is not None
+        
         # Handle crisis detection
         crisis_level = moderation_analysis.get("crisis_level", "none")
         if crisis_level in ["high", "critical"]:
