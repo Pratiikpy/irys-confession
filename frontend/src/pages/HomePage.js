@@ -163,6 +163,9 @@ const HomePage = ({ onNewConfession }) => {
           </motion.div>
         )}
       </div>
+
+      {/* Floating Action Button */}
+      <FloatingActionButton onNewConfession={handleNewConfession} />
     </div>
   );
 };
