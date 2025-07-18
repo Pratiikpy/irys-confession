@@ -102,15 +102,28 @@ class IrysService {
     async getAddress() {
         try {
             if (!this.initialized) {
-                await this.initialize();
+                const initResult = await this.initialize();
+                if (!initResult.success) {
+                    throw new Error(initResult.error);
+                }
+            }
+
+            console.log('🔍 Getting address from Irys instance...');
+            console.log('Irys object:', this.irys ? 'exists' : 'null');
+            
+            if (!this.irys) {
+                throw new Error('Irys instance is null after initialization');
             }
 
             const address = this.irys.address;
+            console.log('✅ Address retrieved:', address);
+            
             return {
                 success: true,
                 address: address
             };
         } catch (error) {
+            console.error('❌ Error getting address:', error.message);
             return {
                 success: false,
                 error: error.message
