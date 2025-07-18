@@ -659,6 +659,125 @@ async def update_user_preferences(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# Wallet Authentication Routes
+@api_router.post("/auth/wallet/challenge")
+async def generate_challenge(request: WalletAuthRequest):
+    """Generate authentication challenge for wallet"""
+    try:
+        challenge_data = await generate_wallet_challenge(request.wallet_address)
+        return challenge_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/auth/wallet/verify")
+async def verify_wallet_auth(request: WalletConnectRequest):
+    """Verify wallet signature and authenticate user"""
+    try:
+        # Verify signature
+        is_valid = await verify_wallet_signature(
+            request.wallet_address,
+            request.signature,
+            request.message
+        )
+        
+        if not is_valid:
+            raise HTTPException(status_code=401, detail="Invalid signature")
+        
+        # Check if challenge exists and is valid
+        challenge = await db.wallet_challenges.find_one({
+            "wallet_address": request.wallet_address.lower(),
+            "message": request.message,
+            "used": False,
+            "expires_at": {"$gt": datetime.utcnow()}
+        })
+        
+        if not challenge:
+            raise HTTPException(status_code=401, detail="Invalid or expired challenge")
+        
+        # Mark challenge as used
+        await db.wallet_challenges.update_one(
+            {"_id": challenge["_id"]},
+            {"$set": {"used": True}}
+        )
+        
+        # Get or create user
+        user = await get_or_create_wallet_user(request.wallet_address)
+        
+        # Update last active
+        await db.users.update_one(
+            {"id": user["id"]},
+            {"$set": {"last_active": datetime.utcnow()}}
+        )
+        
+        # Create access token
+        access_token = create_access_token(
+            data={"sub": user["username"]},
+            expires_delta=timedelta(days=30)
+        )
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": user["id"],
+                "username": user["username"],
+                "email": user.get("email"),
+                "wallet_address": user["wallet_address"],
+                "auth_type": "wallet",
+                "stats": user["stats"],
+                "preferences": user["preferences"]
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Wallet auth error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Wallet authentication failed")
+
+@api_router.post("/auth/wallet/link")
+async def link_wallet_to_account(
+    request: WalletConnectRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Link wallet to existing account"""
+    try:
+        # Verify signature
+        is_valid = await verify_wallet_signature(
+            request.wallet_address,
+            request.signature,
+            request.message
+        )
+        
+        if not is_valid:
+            raise HTTPException(status_code=401, detail="Invalid signature")
+        
+        # Check if wallet is already linked to another account
+        existing_wallet = await db.users.find_one({
+            "wallet_address": request.wallet_address.lower(),
+            "id": {"$ne": current_user["id"]}
+        })
+        
+        if existing_wallet:
+            raise HTTPException(status_code=400, detail="Wallet already linked to another account")
+        
+        # Link wallet to current user
+        await db.users.update_one(
+            {"id": current_user["id"]},
+            {"$set": {
+                "wallet_address": request.wallet_address.lower(),
+                "verification.wallet_verified": True
+            }}
+        )
+        
+        return {"message": "Wallet linked successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Wallet link error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to link wallet")
+
 # Confession Routes
 @api_router.post("/confessions")
 async def create_confession(
