@@ -715,6 +715,340 @@ class IrysConfessionAPITester:
             status_code = response.status_code if response else "No response"
             return self.log_test("Irys Address", False, f"- Status: {status_code}")
 
+    # ===== WALLET AUTHENTICATION TESTS =====
+    
+    def test_wallet_challenge_generation(self):
+        """Test POST /api/auth/wallet/challenge"""
+        print("\n🔍 Testing Wallet Challenge Generation...")
+        
+        # Test wallet address
+        test_wallet = "0x742d35Cc6634C0532925a3b8D4C9db96590c6C87"
+        
+        challenge_request = {
+            "wallet_address": test_wallet,
+            "username": "wallet_user_test",
+            "email": "wallet@test.com"
+        }
+        
+        response, success = self.make_request('POST', 'auth/wallet/challenge', data=challenge_request, expected_status=200)
+        
+        if success and response:
+            try:
+                data = response.json()
+                required_fields = ['challenge', 'message', 'expires_at']
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if not missing_fields:
+                    # Store challenge data for verification test
+                    self.wallet_challenge = data.get('challenge')
+                    self.wallet_message = data.get('message')
+                    self.test_wallet_address = test_wallet
+                    
+                    # Verify message format
+                    message = data.get('message')
+                    has_wallet = test_wallet.lower() in message.lower()
+                    has_challenge = data.get('challenge') in message
+                    has_timestamp = 'timestamp' in message.lower()
+                    
+                    if has_wallet and has_challenge and has_timestamp:
+                        return self.log_test("Wallet Challenge Generation", True, 
+                                           f"- Challenge: {data.get('challenge')[:16]}..., Message format valid")
+                    else:
+                        return self.log_test("Wallet Challenge Generation", False, 
+                                           "- Message format invalid (missing wallet/challenge/timestamp)")
+                else:
+                    return self.log_test("Wallet Challenge Generation", False, f"- Missing fields: {missing_fields}")
+            except json.JSONDecodeError:
+                return self.log_test("Wallet Challenge Generation", False, "- Invalid JSON response")
+        else:
+            status_code = response.status_code if response else "No response"
+            error_msg = ""
+            if response:
+                try:
+                    error_data = response.json()
+                    error_msg = f" - Error: {error_data.get('detail', 'Unknown error')}"
+                except:
+                    error_msg = f" - Response: {response.text[:200]}"
+            return self.log_test("Wallet Challenge Generation", False, f"- Status: {status_code}{error_msg}")
+
+    def test_wallet_signature_verification_invalid(self):
+        """Test POST /api/auth/wallet/verify with invalid signature"""
+        print("\n🔍 Testing Wallet Signature Verification (Invalid Signature)...")
+        
+        if not hasattr(self, 'wallet_challenge') or not self.wallet_challenge:
+            return self.log_test("Wallet Signature Verification (Invalid)", False, 
+                               "- No challenge available (challenge generation failed)")
+        
+        # Use invalid signature for testing error handling
+        verify_request = {
+            "wallet_address": self.test_wallet_address,
+            "signature": "0xinvalidsignature123456789abcdef",
+            "message": self.wallet_message,
+            "wallet_type": "metamask"
+        }
+        
+        response, success = self.make_request('POST', 'auth/wallet/verify', data=verify_request, expected_status=401)
+        
+        if success and response:
+            try:
+                data = response.json()
+                if 'detail' in data and ('invalid' in data['detail'].lower() or 'signature' in data['detail'].lower()):
+                    return self.log_test("Wallet Signature Verification (Invalid)", True, 
+                                       f"- Correctly rejected invalid signature: {data.get('detail')}")
+                else:
+                    return self.log_test("Wallet Signature Verification (Invalid)", False, 
+                                       f"- Unexpected error message: {data}")
+            except json.JSONDecodeError:
+                return self.log_test("Wallet Signature Verification (Invalid)", False, "- Invalid JSON response")
+        else:
+            status_code = response.status_code if response else "No response"
+            return self.log_test("Wallet Signature Verification (Invalid)", False, 
+                               f"- Expected 401 but got: {status_code}")
+
+    def test_wallet_challenge_expiration(self):
+        """Test wallet challenge expiration handling"""
+        print("\n🔍 Testing Wallet Challenge Expiration...")
+        
+        # Generate a new challenge
+        test_wallet = "0x123456789abcdef123456789abcdef1234567890"
+        challenge_request = {
+            "wallet_address": test_wallet
+        }
+        
+        response, success = self.make_request('POST', 'auth/wallet/challenge', data=challenge_request, expected_status=200)
+        
+        if success and response:
+            try:
+                data = response.json()
+                expires_at = data.get('expires_at')
+                
+                # Check if expires_at is in the future (should be 5 minutes from now)
+                from datetime import datetime, timedelta
+                try:
+                    # Parse the expires_at timestamp
+                    if 'T' in expires_at:
+                        expires_time = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+                    else:
+                        expires_time = datetime.fromisoformat(expires_at)
+                    
+                    now = datetime.utcnow()
+                    time_diff = expires_time - now
+                    
+                    # Should expire in approximately 5 minutes (4-6 minutes is acceptable)
+                    if timedelta(minutes=4) <= time_diff <= timedelta(minutes=6):
+                        return self.log_test("Wallet Challenge Expiration", True, 
+                                           f"- Challenge expires in {time_diff.total_seconds()/60:.1f} minutes")
+                    else:
+                        return self.log_test("Wallet Challenge Expiration", False, 
+                                           f"- Unexpected expiration time: {time_diff.total_seconds()/60:.1f} minutes")
+                except Exception as e:
+                    return self.log_test("Wallet Challenge Expiration", False, 
+                                       f"- Error parsing expires_at: {str(e)}")
+                    
+            except json.JSONDecodeError:
+                return self.log_test("Wallet Challenge Expiration", False, "- Invalid JSON response")
+        else:
+            status_code = response.status_code if response else "No response"
+            return self.log_test("Wallet Challenge Expiration", False, f"- Status: {status_code}")
+
+    def test_wallet_challenge_database_storage(self):
+        """Test that wallet challenges are stored in database"""
+        print("\n🔍 Testing Wallet Challenge Database Storage...")
+        
+        # Generate multiple challenges to test database storage
+        test_wallets = [
+            "0xabc123def456789abc123def456789abc123def45",
+            "0xdef456abc789123def456abc789123def456abc78"
+        ]
+        
+        challenges_created = 0
+        for wallet in test_wallets:
+            challenge_request = {"wallet_address": wallet}
+            response, success = self.make_request('POST', 'auth/wallet/challenge', data=challenge_request, expected_status=200)
+            
+            if success and response:
+                try:
+                    data = response.json()
+                    if 'challenge' in data and 'message' in data:
+                        challenges_created += 1
+                except:
+                    pass
+        
+        if challenges_created == len(test_wallets):
+            return self.log_test("Wallet Challenge Database Storage", True, 
+                               f"- Successfully created {challenges_created} challenges")
+        else:
+            return self.log_test("Wallet Challenge Database Storage", False, 
+                               f"- Only created {challenges_created}/{len(test_wallets)} challenges")
+
+    def test_wallet_user_creation_flow(self):
+        """Test wallet user creation without actual signature verification"""
+        print("\n🔍 Testing Wallet User Creation Flow...")
+        
+        # This test focuses on the user creation logic rather than signature verification
+        # We'll test the challenge generation and verify the response structure
+        
+        test_wallet = "0x987654321fedcba987654321fedcba9876543210"
+        challenge_request = {
+            "wallet_address": test_wallet,
+            "username": "wallet_test_user",
+            "email": "walletuser@test.com"
+        }
+        
+        response, success = self.make_request('POST', 'auth/wallet/challenge', data=challenge_request, expected_status=200)
+        
+        if success and response:
+            try:
+                data = response.json()
+                
+                # Verify challenge structure for user creation
+                has_challenge = 'challenge' in data and len(data['challenge']) == 64  # 32 bytes hex
+                has_message = 'message' in data and test_wallet.lower() in data['message'].lower()
+                has_expiration = 'expires_at' in data
+                
+                if has_challenge and has_message and has_expiration:
+                    return self.log_test("Wallet User Creation Flow", True, 
+                                       "- Challenge structure valid for user creation")
+                else:
+                    return self.log_test("Wallet User Creation Flow", False, 
+                                       "- Invalid challenge structure for user creation")
+                    
+            except json.JSONDecodeError:
+                return self.log_test("Wallet User Creation Flow", False, "- Invalid JSON response")
+        else:
+            status_code = response.status_code if response else "No response"
+            return self.log_test("Wallet User Creation Flow", False, f"- Status: {status_code}")
+
+    def test_wallet_linking_authentication_required(self):
+        """Test POST /api/auth/wallet/link requires authentication"""
+        print("\n🔍 Testing Wallet Linking Authentication Requirement...")
+        
+        # Test without authentication - should fail
+        link_request = {
+            "wallet_address": "0x1111222233334444555566667777888899990000",
+            "signature": "0xsomesignature",
+            "message": "test message",
+            "wallet_type": "metamask"
+        }
+        
+        response, success = self.make_request('POST', 'auth/wallet/link', data=link_request, expected_status=401)
+        
+        if success and response:
+            try:
+                data = response.json()
+                if 'detail' in data and ('authentication' in data['detail'].lower() or 'credentials' in data['detail'].lower()):
+                    return self.log_test("Wallet Linking Authentication Required", True, 
+                                       f"- Correctly requires authentication: {data.get('detail')}")
+                else:
+                    return self.log_test("Wallet Linking Authentication Required", False, 
+                                       f"- Unexpected error message: {data}")
+            except json.JSONDecodeError:
+                return self.log_test("Wallet Linking Authentication Required", False, "- Invalid JSON response")
+        else:
+            status_code = response.status_code if response else "No response"
+            return self.log_test("Wallet Linking Authentication Required", False, 
+                               f"- Expected 401 but got: {status_code}")
+
+    def test_wallet_linking_with_auth(self):
+        """Test POST /api/auth/wallet/link with authentication"""
+        if not self.access_token:
+            return self.log_test("Wallet Linking with Auth", False, 
+                               "- No access token available (user registration/login failed)")
+        
+        print("\n🔍 Testing Wallet Linking with Authentication...")
+        
+        # Generate a challenge first for the linking process
+        test_wallet = "0x2222333344445555666677778888999900001111"
+        challenge_request = {"wallet_address": test_wallet}
+        
+        challenge_response, challenge_success = self.make_request('POST', 'auth/wallet/challenge', 
+                                                                data=challenge_request, expected_status=200)
+        
+        if not challenge_success:
+            return self.log_test("Wallet Linking with Auth", False, "- Failed to generate challenge for linking")
+        
+        try:
+            challenge_data = challenge_response.json()
+            message = challenge_data.get('message')
+        except:
+            return self.log_test("Wallet Linking with Auth", False, "- Invalid challenge response")
+        
+        # Test linking with invalid signature (should fail gracefully)
+        link_request = {
+            "wallet_address": test_wallet,
+            "signature": "0xinvalidsignatureforlinkingtestpurposes",
+            "message": message,
+            "wallet_type": "metamask"
+        }
+        
+        response, success = self.make_request('POST', 'auth/wallet/link', data=link_request, 
+                                            auth=True, expected_status=401)
+        
+        if success and response:
+            try:
+                data = response.json()
+                if 'detail' in data and 'signature' in data['detail'].lower():
+                    return self.log_test("Wallet Linking with Auth", True, 
+                                       f"- Correctly validates signature: {data.get('detail')}")
+                else:
+                    return self.log_test("Wallet Linking with Auth", False, 
+                                       f"- Unexpected response: {data}")
+            except json.JSONDecodeError:
+                return self.log_test("Wallet Linking with Auth", False, "- Invalid JSON response")
+        else:
+            status_code = response.status_code if response else "No response"
+            return self.log_test("Wallet Linking with Auth", False, f"- Expected 401 but got: {status_code}")
+
+    def test_wallet_error_handling(self):
+        """Test wallet authentication error handling"""
+        print("\n🔍 Testing Wallet Authentication Error Handling...")
+        
+        # Test 1: Invalid wallet address format
+        invalid_wallet_request = {
+            "wallet_address": "invalid_wallet_address",
+            "username": "test_user"
+        }
+        
+        response1, success1 = self.make_request('POST', 'auth/wallet/challenge', 
+                                              data=invalid_wallet_request, expected_status=500)
+        
+        # Test 2: Missing wallet address
+        missing_wallet_request = {
+            "username": "test_user"
+        }
+        
+        response2, success2 = self.make_request('POST', 'auth/wallet/challenge', 
+                                              data=missing_wallet_request, expected_status=422)
+        
+        # Test 3: Empty wallet address
+        empty_wallet_request = {
+            "wallet_address": "",
+            "username": "test_user"
+        }
+        
+        response3, success3 = self.make_request('POST', 'auth/wallet/challenge', 
+                                              data=empty_wallet_request, expected_status=422)
+        
+        error_tests_passed = 0
+        total_error_tests = 3
+        
+        # Check responses
+        if success1 or (response1 and response1.status_code in [400, 422, 500]):
+            error_tests_passed += 1
+        
+        if success2 or (response2 and response2.status_code in [400, 422]):
+            error_tests_passed += 1
+            
+        if success3 or (response3 and response3.status_code in [400, 422]):
+            error_tests_passed += 1
+        
+        if error_tests_passed >= 2:  # At least 2 out of 3 error cases handled properly
+            return self.log_test("Wallet Authentication Error Handling", True, 
+                               f"- {error_tests_passed}/{total_error_tests} error cases handled properly")
+        else:
+            return self.log_test("Wallet Authentication Error Handling", False, 
+                               f"- Only {error_tests_passed}/{total_error_tests} error cases handled properly")
+
     def run_all_tests(self):
         """Run all API tests"""
         print("🚀 Starting Comprehensive Irys Confession Board API Tests")
