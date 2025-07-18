@@ -107,8 +107,14 @@ const AuthModal = ({ isOpen, onClose }) => {
     setShowConfirmPassword(false);
   };
 
-  const switchMode = () => {
-    setMode(mode === 'login' ? 'register' : 'login');
+  const switchMode = (newMode) => {
+    setMode(newMode);
+    resetForm();
+  };
+
+  const handleWalletSuccess = () => {
+    toast.success('Successfully connected!');
+    onClose();
     resetForm();
   };
 
