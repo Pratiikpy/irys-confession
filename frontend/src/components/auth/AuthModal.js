@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, Mail, User, Lock, Eye, EyeOff, Loader, CheckCircle } from 'lucide-react';
+import { X, Mail, User, Lock, Eye, EyeOff, Loader, CheckCircle, Wallet } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import WalletConnection from '../wallet/WalletConnection';
 import toast from 'react-hot-toast';
 
 // Components
 import Modal from '../common/Modal';
 
 const AuthModal = ({ isOpen, onClose }) => {
-  const [mode, setMode] = useState('login'); // 'login' or 'register'
+  const [mode, setMode] = useState('choose'); // 'choose', 'login', 'register', 'wallet'
   const [formData, setFormData] = useState({
     username: '',
     email: '',
