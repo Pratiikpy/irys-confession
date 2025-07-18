@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-const Irys = require("@irys/sdk").default;
+const { Uploader } = require("@irys/upload");
+const { Ethereum } = require("@irys/upload-ethereum");
 require('dotenv').config();
 
 class IrysService {
@@ -19,14 +20,10 @@ class IrysService {
             console.log('🔄 Initializing Irys with devnet...');
             
             // Initialize Irys with devnet (free uploads)
-            this.irys = new Irys({
-                url: "https://devnet.irys.xyz",
-                token: "ethereum",
-                key: privateKey,
-                config: {
-                    rpc: "https://rpc.ankr.com/eth_sepolia"
-                }
-            });
+            this.irys = await Uploader(Ethereum)
+                .withWallet(privateKey)
+                .withRpc("https://rpc.ankr.com/eth_sepolia")
+                .devnet();
 
             // Wait for initialization to complete
             await this.irys.ready();
@@ -58,18 +55,18 @@ class IrysService {
 
             const allTags = [...defaultTags, ...tags];
 
+            console.log('🔄 Uploading data to Irys...');
+            
             // Upload to Irys
-            const receipt = await this.irys.upload(JSON.stringify(data), {
-                tags: allTags
-            });
+            const receipt = await this.irys.uploadData(JSON.stringify(data), allTags);
 
             console.log(`✅ Upload successful: ${receipt.id}`);
 
             return {
                 success: true,
                 tx_id: receipt.id,
-                gateway_url: `https://devnet.irys.xyz/${receipt.id}`,
-                explorer_url: `https://devnet.irys.xyz/${receipt.id}`,
+                gateway_url: `https://gateway.irys.xyz/${receipt.id}`,
+                explorer_url: `https://devnet.irys.xyz/tx/${receipt.id}`,
                 timestamp: receipt.timestamp,
                 verified: true
             };
@@ -85,16 +82,19 @@ class IrysService {
     async getBalance() {
         try {
             if (!this.initialized) {
-                await this.initialize();
+                const initResult = await this.initialize();
+                if (!initResult.success) {
+                    throw new Error(initResult.error);
+                }
             }
 
             const balance = await this.irys.getBalance();
             return {
                 success: true,
-                balance: balance.toString(),
-                formatted: this.irys.utils.fromAtomic(balance).toString()
+                balance: balance.toString()
             };
         } catch (error) {
+            console.error('❌ Error getting balance:', error.message);
             return {
                 success: false,
                 error: error.message
