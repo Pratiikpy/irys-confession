@@ -1,7 +1,16 @@
 #!/usr/bin/env python3
 """
 Comprehensive Backend API Testing for Irys Confession Board
-Tests all endpoints using the public URL
+Tests all endpoints using the public URL including enhanced features:
+- User Authentication System
+- Enhanced Confession System with AI Analysis
+- Reply System with Threading
+- Voting System
+- Advanced Search
+- AI Content Moderation
+- Real-time Features
+- Analytics
+- Irys Integration
 """
 
 import requests
@@ -9,6 +18,8 @@ import json
 import sys
 from datetime import datetime
 import time
+import websocket
+import threading
 
 class IrysConfessionAPITester:
     def __init__(self, base_url="https://07dc0b05-7562-4f0a-a3bf-31a5cb981e46.preview.emergentagent.com/api"):
@@ -17,6 +28,9 @@ class IrysConfessionAPITester:
         self.tests_passed = 0
         self.created_confession_id = None
         self.created_tx_id = None
+        self.access_token = None
+        self.user_id = None
+        self.created_reply_id = None
 
     def log_test(self, test_name, success, details=""):
         """Log test results"""
