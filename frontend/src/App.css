@@ -663,7 +663,7 @@ textarea:focus-visible {
               linear-gradient(-45deg, rgba(0, 209, 255, 0.02) 25%, transparent 25%), 
               linear-gradient(45deg, transparent 75%, rgba(0, 209, 255, 0.02) 75%), 
               linear-gradient(-45deg, transparent 75%, rgba(0, 209, 255, 0.02) 75%);
-  background-size: 400px 400px;
+  background-size: 20px 20px;
   opacity: 0.05;
   z-index: -1;
 }
