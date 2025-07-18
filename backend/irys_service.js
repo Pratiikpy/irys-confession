@@ -57,17 +57,21 @@ class IrysService {
 
             console.log('🔄 Uploading data to Irys...');
             
+            // Convert data to buffer
+            const dataBuffer = Buffer.from(JSON.stringify(data));
+            
             // Upload to Irys
-            const receipt = await this.irys.uploadData(JSON.stringify(data), allTags);
+            const transactionOptions = { tags: allTags };
+            const response = await this.irys.uploadData(dataBuffer, transactionOptions);
 
-            console.log(`✅ Upload successful: ${receipt.id}`);
+            console.log(`✅ Upload successful: ${response.data.id}`);
 
             return {
                 success: true,
-                tx_id: receipt.id,
-                gateway_url: `https://gateway.irys.xyz/${receipt.id}`,
-                explorer_url: `https://devnet.irys.xyz/tx/${receipt.id}`,
-                timestamp: receipt.timestamp,
+                tx_id: response.data.id,
+                gateway_url: `https://gateway.irys.xyz/${response.data.id}`,
+                explorer_url: `https://devnet.irys.xyz/tx/${response.data.id}`,
+                timestamp: response.data.timestamp,
                 verified: true
             };
         } catch (error) {
