@@ -118,6 +118,23 @@ class UserLogin(BaseModel):
     username: str
     password: str
 
+# Wallet Authentication Models
+class WalletConnectRequest(BaseModel):
+    wallet_address: str
+    signature: str
+    message: str
+    wallet_type: str = "metamask"  # metamask, walletconnect, coinbase, etc.
+
+class WalletAuthRequest(BaseModel):
+    wallet_address: str
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+
+class WalletChallengeResponse(BaseModel):
+    challenge: str
+    message: str
+    expires_at: datetime
+
 class UserProfile(BaseModel):
     username: str
     email: Optional[str] = None
