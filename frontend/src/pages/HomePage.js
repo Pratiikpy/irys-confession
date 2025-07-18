@@ -11,7 +11,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import WelcomeSection from '../components/home/WelcomeSection';
 import EmptyState from '../components/common/EmptyState';
 
-const HomePage = () => {
+const HomePage = ({ onNewConfession }) => {
   const [confessions, setConfessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
@@ -88,6 +88,16 @@ const HomePage = () => {
 
   const handleRefresh = () => {
     fetchConfessions();
+  };
+
+  const handleNewConfession = (newConfession) => {
+    // Add new confession to the top of the list
+    setConfessions(prev => [newConfession, ...prev]);
+    
+    // If we have an external handler, call it too
+    if (onNewConfession) {
+      onNewConfession(newConfession);
+    }
   };
 
   return (
