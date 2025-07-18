@@ -1,75 +1,75 @@
 import React from 'react';
-import { 
-  FireIcon, 
-  ClockIcon, 
-  StarIcon, 
-  ChartBarIcon,
-  FunnelIcon,
-  HeartIcon
-} from '@heroicons/react/24/outline';
-import { useTheme } from '../../contexts/ThemeContext';
+import { motion } from 'framer-motion';
+import { Filter, TrendingUp, Clock, RefreshCw, Sparkles } from 'lucide-react';
 
-const FilterBar = ({ activeFilter, onFilterChange, className = '' }) => {
-  const { theme } = useTheme();
-
+const FilterBar = ({ activeFilter, onFilterChange, onRefresh }) => {
   const filters = [
     { 
       id: 'all', 
       label: 'All', 
-      icon: FunnelIcon,
-      description: 'All public confessions'
+      icon: Filter,
+      description: 'Latest confessions' 
     },
     { 
       id: 'trending', 
       label: 'Trending', 
-      icon: FireIcon,
-      description: 'Popular confessions right now'
+      icon: TrendingUp,
+      description: 'Popular right now' 
     },
     { 
       id: 'recent', 
       label: 'Recent', 
-      icon: ClockIcon,
-      description: 'Latest confessions'
+      icon: Clock,
+      description: 'Just posted' 
     },
     { 
-      id: 'top', 
-      label: 'Top', 
-      icon: StarIcon,
-      description: 'Most upvoted'
-    },
-    { 
-      id: 'engaging', 
-      label: 'Engaging', 
-      icon: ChartBarIcon,
-      description: 'Most replies and interactions'
-    },
-    { 
-      id: 'liked', 
-      label: 'Liked', 
-      icon: HeartIcon,
-      description: 'Your liked confessions'
+      id: 'ai-enhanced', 
+      label: 'AI Enhanced', 
+      icon: Sparkles,
+      description: 'AI-moderated content' 
     }
   ];
 
   return (
-    <div className={`filter-bar ${className}`}>
-      {filters.map(filter => {
-        const Icon = filter.icon;
-        const isActive = activeFilter === filter.id;
+    <motion.div 
+      className="filter-bar"
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      <div className="filter-container">
+        <div className="filter-buttons">
+          {filters.map((filter) => {
+            const Icon = filter.icon;
+            return (
+              <motion.button
+                key={filter.id}
+                onClick={() => onFilterChange(filter.id)}
+                className={`filter-button ${activeFilter === filter.id ? 'active' : ''}`}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                title={filter.description}
+              >
+                <Icon size={16} />
+                <span>{filter.label}</span>
+              </motion.button>
+            );
+          })}
+        </div>
         
-        return (
-          <button
-            key={filter.id}
-            onClick={() => onFilterChange(filter.id)}
-            className={`filter-button ${isActive ? 'active' : ''}`}
-            title={filter.description}
+        <div className="filter-actions">
+          <motion.button
+            onClick={onRefresh}
+            className="refresh-button"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            title="Refresh feed"
           >
-            <Icon className="w-4 h-4" />
-            <span>{filter.label}</span>
-          </button>
-        );
-      })}
-    </div>
+            <RefreshCw size={16} />
+          </motion.button>
+        </div>
+      </div>
+    </motion.div>
   );
 };
 

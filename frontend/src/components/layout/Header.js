@@ -1,173 +1,219 @@
 import React, { useState } from 'react';
-import { 
-  UserCircleIcon, 
-  Cog6ToothIcon, 
-  MagnifyingGlassIcon,
-  BellIcon,
-  ArrowRightOnRectangleIcon,
-  UserPlusIcon
-} from '@heroicons/react/24/outline';
+import { Link, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { Search, Bell, User, Settings, LogOut, Menu, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWebSocket } from '../../contexts/WebSocketContext';
-import Button from '../common/Button';
-import Modal from '../common/Modal';
 import AuthModal from '../auth/AuthModal';
 import SearchModal from '../search/SearchModal';
 import NotificationPanel from '../notifications/NotificationPanel';
 
 const Header = () => {
-  const { user, isAuthenticated, logout } = useAuth();
-  const { connected, liveUpdates } = useWebSocket();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  
+  const { isAuthenticated, user, logout } = useAuth();
+  const { connected, liveUpdates } = useWebSocket();
+  const navigate = useNavigate();
 
-  const unreadNotifications = liveUpdates.filter(update => !update.read).length;
+  const handleLogout = () => {
+    logout();
+    setShowUserMenu(false);
+    navigate('/');
+  };
+
+  const unreadNotifications = liveUpdates.filter(update => 
+    update.type === 'crisis' || update.type === 'reply'
+  ).length;
 
   return (
     <>
-      <header className="app-header">
-        <div className="flex items-center justify-between max-w-6xl mx-auto">
-          {/* Left - Logo and Brand */}
-          <div className="flex items-center space-x-4">
-            <div className="gradient-border rounded-full p-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-sm">I</span>
+      <motion.header 
+        className="app-header"
+        initial={{ y: -64 }}
+        animate={{ y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        <div className="header-container">
+          {/* Left Section - Logo & Navigation */}
+          <div className="header-left">
+            <Link to="/" className="logo-link">
+              <div className="logo-container">
+                <div className="irys-logo">
+                  <img 
+                    src="/assets/irys-blockchain-logo.jpg" 
+                    alt="Irys" 
+                    className="logo-image"
+                  />
+                </div>
+                <span className="logo-text">Confessions</span>
               </div>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold gradient-text">Confessions</h1>
-              <div className="flex items-center space-x-2 text-xs">
-                <span className="text-gray-400">Powered by Irys</span>
-                <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-              </div>
-            </div>
+            </Link>
+            
+            {/* Desktop Navigation */}
+            <nav className="desktop-nav">
+              <Link to="/" className="nav-link">
+                Home
+              </Link>
+              <Link to="/analytics" className="nav-link">
+                Analytics
+              </Link>
+            </nav>
           </div>
 
-          {/* Center - Search */}
-          <div className="hidden md:flex flex-1 max-w-md mx-8">
-            <button
+          {/* Center Section - Search */}
+          <div className="header-center">
+            <button 
               onClick={() => setShowSearchModal(true)}
-              className="w-full flex items-center space-x-3 px-4 py-2 bg-gray-800 border border-gray-700 rounded-xl hover:border-cyan-400 transition-colors"
+              className="search-trigger"
             >
-              <MagnifyingGlassIcon className="w-5 h-5 text-gray-400" />
-              <span className="text-gray-400 text-sm">Search confessions...</span>
-              <div className="ml-auto">
-                <kbd className="hidden sm:inline-block px-2 py-1 text-xs bg-gray-700 rounded">⌘K</kbd>
-              </div>
+              <Search size={18} />
+              <span className="search-placeholder">Search confessions...</span>
             </button>
           </div>
 
-          {/* Right - Actions */}
-          <div className="flex items-center space-x-4">
-            {/* Mobile Search */}
-            <button
-              onClick={() => setShowSearchModal(true)}
-              className="md:hidden p-2 text-gray-400 hover:text-white transition-colors"
-            >
-              <MagnifyingGlassIcon className="w-5 h-5" />
-            </button>
+          {/* Right Section - Actions */}
+          <div className="header-right">
+            {/* WebSocket Status */}
+            <div className="connection-status">
+              <div className={`status-indicator ${connected ? 'connected' : 'disconnected'}`} />
+              <span className="status-text mobile-hidden">
+                {connected ? 'Live' : 'Offline'}
+              </span>
+            </div>
 
-            {/* Notifications */}
-            <button
-              onClick={() => setShowNotifications(true)}
-              className="relative p-2 text-gray-400 hover:text-white transition-colors"
-            >
-              <BellIcon className="w-5 h-5" />
-              {unreadNotifications > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                  {unreadNotifications > 9 ? '9+' : unreadNotifications}
-                </span>
-              )}
-            </button>
-
-            {/* User Menu */}
             {isAuthenticated ? (
-              <div className="relative">
-                <button
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-800 transition-colors"
+              <>
+                {/* Notifications */}
+                <button 
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="header-button"
                 >
-                  <UserCircleIcon className="w-6 h-6 text-cyan-400" />
-                  <span className="hidden sm:block text-sm font-medium">{user?.username}</span>
+                  <Bell size={18} />
+                  {unreadNotifications > 0 && (
+                    <span className="notification-badge">{unreadNotifications}</span>
+                  )}
                 </button>
 
-                {showUserMenu && (
-                  <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-xl shadow-lg z-50">
-                    <div className="py-2">
-                      <div className="px-4 py-2 border-b border-gray-700">
-                        <p className="text-sm font-medium">{user?.username}</p>
-                        <p className="text-xs text-gray-400">
-                          {user?.stats?.confession_count || 0} confessions
-                        </p>
-                      </div>
-                      
-                      <button className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition-colors">
-                        <UserCircleIcon className="w-4 h-4" />
-                        <span>Profile</span>
-                      </button>
-                      
-                      <button className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition-colors">
-                        <Cog6ToothIcon className="w-4 h-4" />
-                        <span>Settings</span>
-                      </button>
-                      
-                      <div className="border-t border-gray-700 mt-2 pt-2">
-                        <button
-                          onClick={logout}
-                          className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-red-400 hover:bg-gray-700 transition-colors"
-                        >
-                          <ArrowRightOnRectangleIcon className="w-4 h-4" />
-                          <span>Sign Out</span>
-                        </button>
-                      </div>
+                {/* User Menu */}
+                <div className="user-menu-container">
+                  <button
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className="user-button"
+                  >
+                    <div className="user-avatar">
+                      {user?.avatar_url ? (
+                        <img src={user.avatar_url} alt={user.username} />
+                      ) : (
+                        <User size={18} />
+                      )}
                     </div>
-                  </div>
-                )}
-              </div>
+                    <span className="user-name mobile-hidden">{user?.username}</span>
+                  </button>
+
+                  {showUserMenu && (
+                    <motion.div
+                      className="user-dropdown"
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <Link 
+                        to={`/user/${user?.username}`}
+                        className="dropdown-item"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        <User size={16} />
+                        Profile
+                      </Link>
+                      <Link 
+                        to="/settings"
+                        className="dropdown-item"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        <Settings size={16} />
+                        Settings
+                      </Link>
+                      <button 
+                        onClick={handleLogout}
+                        className="dropdown-item logout"
+                      >
+                        <LogOut size={16} />
+                        Logout
+                      </button>
+                    </motion.div>
+                  )}
+                </div>
+              </>
             ) : (
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowAuthModal(true)}
-                  icon={UserPlusIcon}
-                >
-                  <span className="hidden sm:inline">Sign In</span>
-                </Button>
-              </div>
+              <button 
+                onClick={() => setShowAuthModal(true)}
+                className="auth-button"
+              >
+                Sign In
+              </button>
             )}
+
+            {/* Mobile Menu Button */}
+            <button 
+              onClick={() => setShowMobileMenu(!showMobileMenu)}
+              className="mobile-menu-button"
+            >
+              {showMobileMenu ? <X size={20} /> : <Menu size={20} />}
+            </button>
           </div>
         </div>
-      </header>
 
-      {/* Search Modal */}
-      <SearchModal
-        isOpen={showSearchModal}
-        onClose={() => setShowSearchModal(false)}
-      />
+        {/* Mobile Menu */}
+        {showMobileMenu && (
+          <motion.div
+            className="mobile-menu"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+          >
+            <Link to="/" className="mobile-nav-link" onClick={() => setShowMobileMenu(false)}>
+              Home
+            </Link>
+            <Link to="/analytics" className="mobile-nav-link" onClick={() => setShowMobileMenu(false)}>
+              Analytics
+            </Link>
+            {!isAuthenticated && (
+              <button 
+                onClick={() => {
+                  setShowAuthModal(true);
+                  setShowMobileMenu(false);
+                }}
+                className="mobile-auth-button"
+              >
+                Sign In
+              </button>
+            )}
+          </motion.div>
+        )}
+      </motion.header>
 
-      {/* Auth Modal */}
+      {/* Notification Panel */}
+      {showNotifications && (
+        <NotificationPanel 
+          isOpen={showNotifications}
+          onClose={() => setShowNotifications(false)}
+        />
+      )}
+
+      {/* Modals */}
       <AuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
       />
-
-      {/* Notification Panel */}
-      <NotificationPanel
-        isOpen={showNotifications}
-        onClose={() => setShowNotifications(false)}
-        notifications={liveUpdates}
+      
+      <SearchModal
+        isOpen={showSearchModal}
+        onClose={() => setShowSearchModal(false)}
       />
-
-      {/* Click outside to close user menu */}
-      {showUserMenu && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setShowUserMenu(false)}
-        />
-      )}
     </>
   );
 };
