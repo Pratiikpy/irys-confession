@@ -665,3 +665,682 @@ async def create_confession(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# Reply Routes
+@api_router.post("/confessions/{confession_id}/replies")
+async def create_reply(
+    confession_id: str,
+    reply: ReplyCreate,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user_optional)
+):
+    """Create a reply to a confession"""
+    try:
+        # Check if confession exists
+        confession = await db.confessions.find_one({"$or": [{"id": confession_id}, {"tx_id": confession_id}]})
+        if not confession:
+            raise HTTPException(status_code=404, detail="Confession not found")
+        
+        # Determine author
+        author = current_user["username"] if current_user else "anonymous"
+        author_id = current_user["id"] if current_user else None
+        
+        # AI Content Analysis
+        moderation_analysis = await analyze_content_with_claude(reply.content, "moderation")
+        
+        # Handle crisis detection
+        crisis_level = moderation_analysis.get("crisis_level", "none")
+        if crisis_level in ["high", "critical"]:
+            if current_user and current_user.get("preferences", {}).get("crisis_support", True):
+                await manager.send_personal_message(
+                    json.dumps({
+                        "type": "crisis_support",
+                        "resources": {
+                            "hotline": "988 - Suicide & Crisis Lifeline",
+                            "chat": "https://suicidepreventionlifeline.org/chat/",
+                            "text": "Text HOME to 741741"
+                        }
+                    }),
+                    current_user["id"]
+                )
+        
+        # Check if content should be auto-moderated
+        if moderation_analysis.get("recommended_action") == "remove":
+            raise HTTPException(
+                status_code=400,
+                detail="Reply violates community guidelines"
+            )
+        
+        # Create reply document
+        reply_doc = {
+            "id": str(uuid.uuid4()),
+            "confession_id": confession["id"],
+            "parent_reply_id": reply.parent_reply_id,
+            "content": reply.content,
+            "author": author,
+            "author_id": author_id,
+            "timestamp": datetime.utcnow(),
+            "upvotes": 0,
+            "downvotes": 0,
+            "verified": False,
+            "ai_analysis": {"moderation": moderation_analysis},
+            "crisis_level": crisis_level,
+            "moderation": {
+                "flagged": moderation_analysis.get("recommended_action") == "flag",
+                "reviewed": False,
+                "approved": moderation_analysis.get("recommended_action") == "approve"
+            }
+        }
+        
+        # Upload to Irys (optional for replies)
+        if current_user:  # Only upload to Irys if user is logged in
+            reply_data = {
+                "content": reply.content,
+                "confession_id": confession["id"],
+                "parent_reply_id": reply.parent_reply_id,
+                "author": author,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+            irys_tags = [
+                {"name": "Content-Type", "value": "reply"},
+                {"name": "App", "value": "Irys-Confession-Board"},
+                {"name": "Author", "value": author},
+                {"name": "ParentID", "value": confession["id"]},
+                {"name": "Timestamp", "value": str(int(datetime.utcnow().timestamp()))}
+            ]
+            
+            irys_result = await call_irys_service({
+                "action": "upload",
+                "data": reply_data,
+                "tags": irys_tags
+            })
+            
+            if irys_result.get("success"):
+                reply_doc["tx_id"] = irys_result["tx_id"]
+                reply_doc["verified"] = True
+        
+        await db.replies.insert_one(reply_doc)
+        
+        # Update reply count on confession
+        await db.confessions.update_one(
+            {"id": confession["id"]},
+            {"$inc": {"reply_count": 1}}
+        )
+        
+        # Broadcast new reply to connected users
+        await manager.broadcast(json.dumps({
+            "type": "new_reply",
+            "reply": {
+                "id": reply_doc["id"],
+                "confession_id": reply_doc["confession_id"],
+                "content": reply_doc["content"],
+                "author": reply_doc["author"],
+                "timestamp": reply_doc["timestamp"].isoformat(),
+                "upvotes": reply_doc["upvotes"]
+            }
+        }))
+        
+        return {
+            "status": "success",
+            "id": reply_doc["id"],
+            "tx_id": reply_doc.get("tx_id"),
+            "message": "Reply posted successfully!"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/confessions/{confession_id}/replies")
+async def get_replies(confession_id: str, limit: int = 50, offset: int = 0):
+    """Get replies for a confession"""
+    try:
+        # Find confession
+        confession = await db.confessions.find_one({"$or": [{"id": confession_id}, {"tx_id": confession_id}]})
+        if not confession:
+            raise HTTPException(status_code=404, detail="Confession not found")
+        
+        # Get replies
+        cursor = db.replies.find(
+            {"confession_id": confession["id"]},
+            {"_id": 0}
+        ).sort("timestamp", 1).skip(offset).limit(limit)
+        
+        replies = await cursor.to_list(length=limit)
+        
+        # Build threaded structure
+        reply_map = {}
+        root_replies = []
+        
+        for reply in replies:
+            reply_map[reply["id"]] = reply
+            reply["children"] = []
+            
+            if reply["parent_reply_id"]:
+                parent = reply_map.get(reply["parent_reply_id"])
+                if parent:
+                    parent["children"].append(reply)
+            else:
+                root_replies.append(reply)
+        
+        return {
+            "replies": root_replies,
+            "count": len(replies),
+            "offset": offset,
+            "limit": limit
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Enhanced Confession Routes
+@api_router.get("/confessions/public")
+async def get_public_confessions(
+    limit: int = 50,
+    offset: int = 0,
+    sort_by: str = "timestamp",
+    order: str = "desc"
+):
+    """Get public confessions feed"""
+    try:
+        # Build sort parameter
+        sort_order = -1 if order == "desc" else 1
+        sort_param = [(sort_by, sort_order)]
+        
+        # Query database for public confessions
+        cursor = db.confessions.find(
+            {"is_public": True, "moderation.approved": {"$ne": False}},
+            {"_id": 0}
+        ).sort(sort_param).skip(offset).limit(limit)
+        
+        confessions = await cursor.to_list(length=limit)
+        
+        return {
+            "confessions": confessions,
+            "count": len(confessions),
+            "offset": offset,
+            "limit": limit
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/confessions/{tx_id}")
+async def get_confession(tx_id: str):
+    """Get specific confession by transaction ID"""
+    try:
+        # Find confession
+        confession = await db.confessions.find_one(
+            {"$or": [{"tx_id": tx_id}, {"id": tx_id}]},
+            {"_id": 0}
+        )
+        
+        if not confession:
+            raise HTTPException(status_code=404, detail="Confession not found")
+        
+        # Increment view count
+        await db.confessions.update_one(
+            {"id": confession["id"]},
+            {"$inc": {"view_count": 1}}
+        )
+        
+        return confession
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/confessions/{confession_id}/vote")
+async def vote_confession(
+    confession_id: str,
+    vote_request: VoteRequest,
+    current_user: dict = Depends(get_current_user_optional)
+):
+    """Vote on a confession"""
+    try:
+        if vote_request.vote_type not in ["upvote", "downvote"]:
+            raise HTTPException(status_code=400, detail="Invalid vote type")
+        
+        # Check if confession exists
+        confession = await db.confessions.find_one({"$or": [{"id": confession_id}, {"tx_id": confession_id}]})
+        if not confession:
+            raise HTTPException(status_code=404, detail="Confession not found")
+        
+        # Determine user identifier
+        user_identifier = current_user["id"] if current_user else vote_request.user_address
+        
+        # Check if user already voted
+        existing_vote = await db.votes.find_one({
+            "confession_id": confession["id"],
+            "user_identifier": user_identifier
+        })
+        
+        if existing_vote:
+            # Update existing vote
+            if existing_vote["vote_type"] == vote_request.vote_type:
+                raise HTTPException(status_code=400, detail="Already voted")
+            else:
+                # Change vote
+                old_vote = existing_vote["vote_type"]
+                await db.votes.update_one(
+                    {"id": existing_vote["id"]},
+                    {"$set": {"vote_type": vote_request.vote_type, "timestamp": datetime.utcnow()}}
+                )
+                
+                # Update confession counts
+                if old_vote == "upvote":
+                    await db.confessions.update_one(
+                        {"id": confession["id"]},
+                        {"$inc": {"upvotes": -1, "downvotes": 1}}
+                    )
+                else:
+                    await db.confessions.update_one(
+                        {"id": confession["id"]},
+                        {"$inc": {"upvotes": 1, "downvotes": -1}}
+                    )
+        else:
+            # Record new vote
+            vote_doc = {
+                "id": str(uuid.uuid4()),
+                "confession_id": confession["id"],
+                "user_identifier": user_identifier,
+                "vote_type": vote_request.vote_type,
+                "timestamp": datetime.utcnow()
+            }
+            
+            await db.votes.insert_one(vote_doc)
+            
+            # Update confession vote count
+            update_field = "upvotes" if vote_request.vote_type == "upvote" else "downvotes"
+            await db.confessions.update_one(
+                {"id": confession["id"]},
+                {"$inc": {update_field: 1}}
+            )
+        
+        # Broadcast vote update
+        await manager.broadcast(json.dumps({
+            "type": "vote_update",
+            "confession_id": confession["id"],
+            "vote_type": vote_request.vote_type
+        }))
+        
+        return {"status": "success", "message": f"{vote_request.vote_type} recorded"}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/replies/{reply_id}/vote")
+async def vote_reply(
+    reply_id: str,
+    vote_request: VoteRequest,
+    current_user: dict = Depends(get_current_user_optional)
+):
+    """Vote on a reply"""
+    try:
+        if vote_request.vote_type not in ["upvote", "downvote"]:
+            raise HTTPException(status_code=400, detail="Invalid vote type")
+        
+        # Check if reply exists
+        reply = await db.replies.find_one({"id": reply_id})
+        if not reply:
+            raise HTTPException(status_code=404, detail="Reply not found")
+        
+        # Determine user identifier
+        user_identifier = current_user["id"] if current_user else vote_request.user_address
+        
+        # Check if user already voted
+        existing_vote = await db.reply_votes.find_one({
+            "reply_id": reply_id,
+            "user_identifier": user_identifier
+        })
+        
+        if existing_vote:
+            if existing_vote["vote_type"] == vote_request.vote_type:
+                raise HTTPException(status_code=400, detail="Already voted")
+            else:
+                # Change vote
+                old_vote = existing_vote["vote_type"]
+                await db.reply_votes.update_one(
+                    {"id": existing_vote["id"]},
+                    {"$set": {"vote_type": vote_request.vote_type, "timestamp": datetime.utcnow()}}
+                )
+                
+                # Update reply counts
+                if old_vote == "upvote":
+                    await db.replies.update_one(
+                        {"id": reply_id},
+                        {"$inc": {"upvotes": -1, "downvotes": 1}}
+                    )
+                else:
+                    await db.replies.update_one(
+                        {"id": reply_id},
+                        {"$inc": {"upvotes": 1, "downvotes": -1}}
+                    )
+        else:
+            # Record new vote
+            vote_doc = {
+                "id": str(uuid.uuid4()),
+                "reply_id": reply_id,
+                "user_identifier": user_identifier,
+                "vote_type": vote_request.vote_type,
+                "timestamp": datetime.utcnow()
+            }
+            
+            await db.reply_votes.insert_one(vote_doc)
+            
+            # Update reply vote count
+            update_field = "upvotes" if vote_request.vote_type == "upvote" else "downvotes"
+            await db.replies.update_one(
+                {"id": reply_id},
+                {"$inc": {update_field: 1}}
+            )
+        
+        return {"status": "success", "message": f"{vote_request.vote_type} recorded"}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Advanced Search Routes
+@api_router.post("/search")
+async def search_confessions(search_request: SearchRequest):
+    """Advanced search for confessions"""
+    try:
+        # Build search query
+        query = {"is_public": True, "moderation.approved": {"$ne": False}}
+        
+        # Text search
+        if search_request.query:
+            query["$text"] = {"$search": search_request.query}
+        
+        # Mood filter
+        if search_request.mood:
+            query["mood"] = search_request.mood
+        
+        # Tags filter
+        if search_request.tags:
+            query["tags"] = {"$in": search_request.tags}
+        
+        # Author filter
+        if search_request.author:
+            query["author"] = search_request.author
+        
+        # Date range filter
+        if search_request.date_from or search_request.date_to:
+            date_query = {}
+            if search_request.date_from:
+                date_query["$gte"] = search_request.date_from
+            if search_request.date_to:
+                date_query["$lte"] = search_request.date_to
+            query["timestamp"] = date_query
+        
+        # Sort parameters
+        sort_order = -1 if search_request.order == "desc" else 1
+        sort_param = [(search_request.sort_by, sort_order)]
+        
+        # Execute search
+        cursor = db.confessions.find(query, {"_id": 0}).sort(sort_param).limit(50)
+        confessions = await cursor.to_list(length=50)
+        
+        return {
+            "confessions": confessions,
+            "count": len(confessions),
+            "query": search_request.dict()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/trending")
+async def get_trending_confessions(limit: int = 20, timeframe: str = "24h"):
+    """Get trending confessions"""
+    try:
+        # Calculate time threshold
+        if timeframe == "1h":
+            time_threshold = datetime.utcnow() - timedelta(hours=1)
+        elif timeframe == "24h":
+            time_threshold = datetime.utcnow() - timedelta(hours=24)
+        elif timeframe == "7d":
+            time_threshold = datetime.utcnow() - timedelta(days=7)
+        elif timeframe == "30d":
+            time_threshold = datetime.utcnow() - timedelta(days=30)
+        else:
+            time_threshold = datetime.utcnow() - timedelta(hours=24)
+        
+        # Aggregation pipeline for trending algorithm
+        pipeline = [
+            {
+                "$match": {
+                    "is_public": True,
+                    "timestamp": {"$gte": time_threshold},
+                    "moderation.approved": {"$ne": False}
+                }
+            },
+            {
+                "$addFields": {
+                    "engagement_score": {
+                        "$add": [
+                            {"$multiply": ["$upvotes", 1]},
+                            {"$multiply": ["$reply_count", 2]},
+                            {"$multiply": ["$view_count", 0.1]}
+                        ]
+                    },
+                    "time_decay": {
+                        "$divide": [
+                            {"$subtract": ["$$NOW", "$timestamp"]},
+                            1000 * 60 * 60  # Convert to hours
+                        ]
+                    }
+                }
+            },
+            {
+                "$addFields": {
+                    "trending_score": {
+                        "$divide": [
+                            "$engagement_score",
+                            {"$add": ["$time_decay", 1]}
+                        ]
+                    }
+                }
+            },
+            {"$sort": {"trending_score": -1}},
+            {"$limit": limit},
+            {"$project": {"_id": 0, "engagement_score": 0, "time_decay": 0, "trending_score": 0}}
+        ]
+        
+        cursor = db.confessions.aggregate(pipeline)
+        confessions = await cursor.to_list(length=limit)
+        
+        return {
+            "confessions": confessions,
+            "count": len(confessions),
+            "timeframe": timeframe
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/tags/trending")
+async def get_trending_tags(limit: int = 20):
+    """Get trending tags"""
+    try:
+        # Aggregation pipeline for trending tags
+        pipeline = [
+            {
+                "$match": {
+                    "is_public": True,
+                    "timestamp": {"$gte": datetime.utcnow() - timedelta(days=7)},
+                    "moderation.approved": {"$ne": False}
+                }
+            },
+            {"$unwind": "$tags"},
+            {"$group": {"_id": "$tags", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": limit},
+            {"$project": {"tag": "$_id", "count": 1, "_id": 0}}
+        ]
+        
+        cursor = db.confessions.aggregate(pipeline)
+        tags = await cursor.to_list(length=limit)
+        
+        return {
+            "tags": tags,
+            "count": len(tags)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Analytics Routes
+@api_router.get("/analytics/stats")
+async def get_platform_stats():
+    """Get platform statistics"""
+    try:
+        # Get various stats
+        total_confessions = await db.confessions.count_documents({})
+        public_confessions = await db.confessions.count_documents({"is_public": True})
+        total_users = await db.users.count_documents({})
+        total_replies = await db.replies.count_documents({})
+        
+        # Get stats for last 24 hours
+        last_24h = datetime.utcnow() - timedelta(hours=24)
+        confessions_24h = await db.confessions.count_documents({"timestamp": {"$gte": last_24h}})
+        users_24h = await db.users.count_documents({"created_at": {"$gte": last_24h}})
+        
+        # Get mood distribution
+        mood_pipeline = [
+            {"$group": {"_id": "$mood", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}}
+        ]
+        mood_cursor = db.confessions.aggregate(mood_pipeline)
+        mood_stats = await mood_cursor.to_list(length=10)
+        
+        return {
+            "total_confessions": total_confessions,
+            "public_confessions": public_confessions,
+            "total_users": total_users,
+            "total_replies": total_replies,
+            "last_24h": {
+                "confessions": confessions_24h,
+                "new_users": users_24h
+            },
+            "mood_distribution": mood_stats
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Irys Routes
+@api_router.get("/irys/network-info")
+async def get_irys_network_info():
+    """Get Irys network configuration"""
+    return {
+        "network": "devnet",
+        "gateway_url": "https://devnet.irys.xyz",
+        "rpc_url": "https://rpc.devnet.irys.xyz/v1",
+        "explorer_url": "https://devnet.irys.xyz",
+        "faucet_url": "https://faucet.devnet.irys.xyz"
+    }
+
+@api_router.get("/irys/balance")
+async def get_irys_balance():
+    """Get account balance on Irys"""
+    try:
+        result = await call_irys_service({"action": "balance"})
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/irys/address")
+async def get_irys_address():
+    """Get Irys wallet address"""
+    try:
+        result = await call_irys_service({"action": "address"})
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/verify/{tx_id}")
+async def verify_transaction(tx_id: str):
+    """Verify transaction on Irys"""
+    try:
+        # Check if transaction exists in our database
+        confession = await db.confessions.find_one({"tx_id": tx_id})
+        if confession:
+            return {
+                "verified": True,
+                "type": "confession",
+                "data": confession
+            }
+        
+        reply = await db.replies.find_one({"tx_id": tx_id})
+        if reply:
+            return {
+                "verified": True,
+                "type": "reply",
+                "data": reply
+            }
+        
+        return {
+            "verified": False,
+            "message": "Transaction not found"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Include the router in the main app
+app.include_router(api_router)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+@app.on_event("startup")
+async def startup_event():
+    """Create indexes on startup"""
+    try:
+        # Create text index for search
+        await db.confessions.create_index([("content", "text"), ("tags", "text")])
+        
+        # Create other useful indexes
+        await db.confessions.create_index([("timestamp", -1)])
+        await db.confessions.create_index([("upvotes", -1)])
+        await db.confessions.create_index([("is_public", 1)])
+        await db.confessions.create_index([("author", 1)])
+        await db.confessions.create_index([("mood", 1)])
+        await db.confessions.create_index([("tx_id", 1)])
+        
+        # User indexes
+        await db.users.create_index([("username", 1)], unique=True)
+        await db.users.create_index([("email", 1)], unique=True, sparse=True)
+        
+        # Reply indexes
+        await db.replies.create_index([("confession_id", 1)])
+        await db.replies.create_index([("timestamp", 1)])
+        
+        # Vote indexes
+        await db.votes.create_index([("confession_id", 1), ("user_identifier", 1)], unique=True)
+        await db.reply_votes.create_index([("reply_id", 1), ("user_identifier", 1)], unique=True)
+        
+        logger.info("Database indexes created successfully")
+        
+    except Exception as e:
+        logger.error(f"Failed to create indexes: {str(e)}")
+
+@app.on_event("shutdown")
+async def shutdown_db_client():
+    client.close()
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8001)
