@@ -70,9 +70,6 @@ function App() {
                 </div>
               </div>
               
-              {/* Floating Action Button */}
-              <FloatingActionButton />
-              
               {/* Toast Notifications */}
               <Toaster
                 position="top-right"
