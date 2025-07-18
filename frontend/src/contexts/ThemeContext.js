@@ -12,48 +12,38 @@ export const useTheme = () => {
 
 export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState('dark');
-  const [notifications, setNotifications] = useState(true);
-  const [crisisSupport, setCrisisSupport] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(true);
 
   useEffect(() => {
-    // Load theme from localStorage or user preferences
+    // Check for saved theme preference or default to dark
     const savedTheme = localStorage.getItem('theme');
-    const savedNotifications = localStorage.getItem('notifications');
-    const savedCrisisSupport = localStorage.getItem('crisisSupport');
-
     if (savedTheme) {
       setTheme(savedTheme);
-    }
-    if (savedNotifications) {
-      setNotifications(JSON.parse(savedNotifications));
-    }
-    if (savedCrisisSupport) {
-      setCrisisSupport(JSON.parse(savedCrisisSupport));
+      setIsDarkMode(savedTheme === 'dark');
+    } else {
+      // Check system preference
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setTheme(prefersDark ? 'dark' : 'light');
+      setIsDarkMode(prefersDark);
     }
   }, []);
 
-  const updateTheme = (newTheme) => {
+  useEffect(() => {
+    // Apply theme to document
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
-  };
-
-  const updateNotifications = (enabled) => {
-    setNotifications(enabled);
-    localStorage.setItem('notifications', JSON.stringify(enabled));
-  };
-
-  const updateCrisisSupport = (enabled) => {
-    setCrisisSupport(enabled);
-    localStorage.setItem('crisisSupport', JSON.stringify(enabled));
+    setIsDarkMode(newTheme === 'dark');
   };
 
   const value = {
     theme,
-    notifications,
-    crisisSupport,
-    updateTheme,
-    updateNotifications,
-    updateCrisisSupport
+    isDarkMode,
+    toggleTheme,
   };
 
   return (
