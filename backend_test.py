@@ -1069,6 +1069,18 @@ class IrysConfessionAPITester:
         self.test_get_user_profile()
         self.test_update_user_preferences()
         
+        # 2.1. Wallet Authentication Tests
+        print("\n🔐 WALLET AUTHENTICATION TESTS")
+        print("-" * 40)
+        self.test_wallet_challenge_generation()
+        self.test_wallet_signature_verification_invalid()
+        self.test_wallet_challenge_expiration()
+        self.test_wallet_challenge_database_storage()
+        self.test_wallet_user_creation_flow()
+        self.test_wallet_linking_authentication_required()
+        self.test_wallet_linking_with_auth()
+        self.test_wallet_error_handling()
+        
         # 3. Enhanced Confession System Tests
         print("\n📝 ENHANCED CONFESSION SYSTEM TESTS")
         print("-" * 40)
