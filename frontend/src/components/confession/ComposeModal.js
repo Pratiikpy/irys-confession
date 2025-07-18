@@ -84,7 +84,19 @@ const ComposeModal = ({ isOpen, onClose, onSubmit }) => {
         toast.success('🎉 Confession posted successfully!');
         
         if (onSubmit) {
-          onSubmit(response);
+          // Pass the confession data from the response
+          onSubmit(response.confession || response.data || {
+            id: response.id,
+            content: confessionData.content,
+            author: confessionData.author,
+            timestamp: new Date().toISOString(),
+            is_public: confessionData.is_public,
+            upvotes: 0,
+            downvotes: 0,
+            reply_count: 0,
+            mood: confessionData.mood,
+            tags: confessionData.tags
+          });
         }
         
         onClose();
