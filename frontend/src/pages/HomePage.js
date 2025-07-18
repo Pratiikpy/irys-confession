@@ -7,6 +7,7 @@ import { confessionAPI } from '../utils/api';
 // Components
 import ConfessionCard from '../components/confession/ConfessionCard';
 import FilterBar from '../components/layout/FilterBar';
+import FloatingActionButton from '../components/layout/FloatingActionButton';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import WelcomeSection from '../components/home/WelcomeSection';
 import EmptyState from '../components/common/EmptyState';
