@@ -417,15 +417,15 @@ const WalletConnection = ({ onSuccess, onClose, mode = 'auth' }) => {
             <p className="text-gray-300 text-sm">
               {mode === 'link' 
                 ? 'Your wallet has been successfully linked to your account.'
-                : `Welcome to Irys Confession Board, ${user?.username || 'user'}!`
+                : `Welcome to Irys Confession Board, ${authData?.user?.username || 'user'}!`
               }
             </p>
           </div>
 
           <div className="pt-4 border-t border-[#333]">
             <div className="flex items-center justify-center gap-2 text-sm text-gray-400">
-              <span className="text-2xl">{getWalletIcon(connector?.name)}</span>
-              <span>{formatAddress(address)}</span>
+              <span className="text-2xl">🦊</span>
+              <span>{authData?.address ? formatAddress(authData.address) : 'Connected'}</span>
             </div>
           </div>
         </motion.div>
