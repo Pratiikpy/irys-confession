@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useCallback } from 'react'
-import { createWeb3Modal } from '@web3modal/wagmi/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { WagmiProvider, useAccount, useSignMessage, useDisconnect } from 'wagmi'
 import { config, walletConfig } from '../config/web3'
@@ -9,14 +8,20 @@ import { toast } from 'react-hot-toast'
 // Create query client
 const queryClient = new QueryClient()
 
-// Create Web3Modal
-createWeb3Modal({
-  wagmiConfig: config,
-  projectId: process.env.REACT_APP_WALLETCONNECT_PROJECT_ID || 'your-project-id',
-  enableAnalytics: false, // Disable to avoid 403 errors from WalletConnect analytics
-  enableOnramp: false,    // Disable to avoid additional API calls
-  ...walletConfig
-})
+// Create Web3Modal with error handling
+let web3ModalInstance = null
+try {
+  const { createWeb3Modal } = require('@web3modal/wagmi/react')
+  web3ModalInstance = createWeb3Modal({
+    wagmiConfig: config,
+    projectId: process.env.REACT_APP_WALLETCONNECT_PROJECT_ID || 'your-project-id',
+    enableAnalytics: false, // Disable to avoid 403 errors from WalletConnect analytics
+    enableOnramp: false,    // Disable to avoid additional API calls
+    ...walletConfig
+  })
+} catch (error) {
+  console.warn('Web3Modal initialization failed, falling back to direct wallet connection:', error)
+}
 
 // Wallet context
 const WalletContext = createContext()
