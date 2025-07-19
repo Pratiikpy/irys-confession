@@ -18,6 +18,7 @@ const Header = () => {
   
   const { isAuthenticated, user, logout } = useAuth();
   const { connected, liveUpdates } = useWebSocket();
+  const { isConnected, address, connector } = useWallet();
   const navigate = useNavigate();
 
   const handleLogout = () => {
