@@ -29,3 +29,4 @@ eth-account>=0.11.0
 web3>=6.15.0
 ecdsa>=0.18.0
 httpx
+aiohttp
