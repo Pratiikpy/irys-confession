@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Search, Bell, User, Settings, LogOut, Menu, X } from 'lucide-react';
+import { Search, Bell, User, Settings, LogOut, Menu, X, Wallet } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWebSocket } from '../../contexts/WebSocketContext';
+import { useWallet } from '../../contexts/WalletContext';
 import AuthModal from '../auth/AuthModal';
 import SearchModal from '../search/SearchModal';
 import NotificationPanel from '../notifications/NotificationPanel';
