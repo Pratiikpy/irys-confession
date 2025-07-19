@@ -22,7 +22,7 @@ import websocket
 import threading
 
 class IrysConfessionAPITester:
-    def __init__(self, base_url="https://29b61bc1-0146-47cd-affe-4b3d02b24dd8.preview.emergentagent.com/api"):
+    def __init__(self, base_url="https://e4bb3a54-2d51-4461-a1ec-3b3cc3bfa4a9.preview.emergentagent.com/api"):
         self.base_url = base_url
         self.tests_run = 0
         self.tests_passed = 0
