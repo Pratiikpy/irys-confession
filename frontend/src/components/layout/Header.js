@@ -243,18 +243,16 @@ const Header = () => {
             </Link>
             {!isAuthenticated && (
               <>
-                {!isConnected && (
-                  <button 
-                    onClick={() => {
-                      handleWalletAuth();
-                      setShowMobileMenu(false);
-                    }}
-                    className="mobile-wallet-button"
-                  >
-                    <Wallet size={18} />
-                    Connect Wallet
-                  </button>
-                )}
+                <button 
+                  onClick={() => {
+                    handleWalletAuth();
+                    setShowMobileMenu(false);
+                  }}
+                  className="mobile-wallet-button"
+                >
+                  <Wallet size={18} />
+                  Connect Wallet
+                </button>
                 <button 
                   onClick={() => {
                     setShowAuthModal(true);
