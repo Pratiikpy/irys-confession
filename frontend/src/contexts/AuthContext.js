@@ -79,11 +79,35 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // New method for wallet authentication
+  const walletAuth = async (authData) => {
+    try {
+      // authData contains: { address, token, user }
+      if (authData.token) {
+        localStorage.setItem('token', authData.token);
+        setToken(authData.token);
+        setUser(authData.user);
+        setIsAuthenticated(true);
+        
+        // Force a re-render of the entire app
+        window.dispatchEvent(new Event('auth-state-changed'));
+        
+        return authData;
+      }
+    } catch (error) {
+      console.error('Wallet auth failed:', error);
+      throw error;
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     setToken(null);
     setUser(null);
     setIsAuthenticated(false);
+    
+    // Force a re-render
+    window.dispatchEvent(new Event('auth-state-changed'));
   };
 
   const updatePreferences = async (preferences) => {
