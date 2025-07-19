@@ -16,43 +16,28 @@ export function IrysConfessionApp() {
   const [loading, setLoading] = useState(false)
   const [irysInfo, setIrysInfo] = useState(null)
 
-  // Sample confessions for demo (will be replaced with blockchain data)
-  const sampleConfessions = [
-    {
-      id: 'sample-1',
-      txId: 'sample-tx-1',
-      content: "I've been pretending to understand blockchain technology in meetings for months. This confession is now permanently stored on Irys devnet.",
-      author: '0x742d35Cc7F34C532A1b497C6F1f2e9f8A8e15342',
-      timestamp: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-      isPrivate: false,
-      viewUrl: 'https://devnet.irys.xyz/sample-tx-1',
-      comments: []
-    },
-    {
-      id: 'sample-2', 
-      txId: 'sample-tx-2',
-      content: "I accidentally sent ETH to the wrong address last week and lost $200. Still haven't told my spouse. At least this confession is immutable now.",
-      author: '0x8ba1f109551bD432803012645Hac136c4c04Cb3a',
-      timestamp: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
-      isPrivate: false,
-      viewUrl: 'https://devnet.irys.xyz/sample-tx-2',
-      comments: []
-    },
-    {
-      id: 'sample-3',
-      txId: 'sample-tx-3', 
-      content: "I created a crypto wallet in 2017 and forgot the seed phrase. It had 0.5 BTC. I check old notebooks every few months hoping to find it written down somewhere.",
-      author: '0x123abc456def789ghi012jkl345mno678pqr901st',
-      timestamp: new Date(Date.now() - 259200000).toISOString(), // 3 days ago
-      isPrivate: true,
-      viewUrl: 'https://devnet.irys.xyz/sample-tx-3',
-      comments: []
+  // Load real confessions from backend/blockchain
+  const loadRealConfessions = async () => {
+    try {
+      setLoading(true)
+      // TODO: Replace with actual backend API call to get blockchain confessions
+      // const response = await fetch('/api/irys/confessions')
+      // const confessions = await response.json()
+      // setConfessions(confessions)
+      
+      // For now, start with empty array - all confessions will come from real blockchain posts
+      setConfessions([])
+    } catch (error) {
+      console.error('Failed to load confessions:', error)
+      setConfessions([])
+    } finally {
+      setLoading(false)
     }
-  ]
+  }
 
-  // Initialize sample data
+  // Initialize real data
   useEffect(() => {
-    setConfessions(sampleConfessions)
+    loadRealConfessions()
   }, [])
 
   // Get Irys node info when wallet connects
