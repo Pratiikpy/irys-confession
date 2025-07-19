@@ -27,6 +27,15 @@ const Header = () => {
     navigate('/');
   };
 
+  const handleWalletAuth = () => {
+    setShowAuthModal(true);
+  };
+
+  const formatAddress = (addr) => {
+    if (!addr) return '';
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  };
+
   const unreadNotifications = liveUpdates.filter(update => 
     update.type === 'crisis' || update.type === 'reply'
   ).length;
