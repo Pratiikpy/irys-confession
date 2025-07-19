@@ -12,7 +12,7 @@ import time
 from datetime import datetime
 
 class ClaudeAPIFailureTest:
-    def __init__(self, base_url="https://e4bb3a54-2d51-4461-a1ec-3b3cc3bfa4a9.preview.emergentagent.com/api"):
+    def __init__(self, base_url="https://558d7e30-1c8d-4a13-88ed-279c9f4d0a82.preview.emergentagent.com/api"):
         self.base_url = base_url
         self.tests_run = 0
         self.tests_passed = 0
