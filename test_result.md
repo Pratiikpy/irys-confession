@@ -347,10 +347,12 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus: []
-  stuck_tasks: []
+  current_focus:
+    - "Irys Blockchain Confession App (/irys route)"
+  stuck_tasks:
+    - "Irys Blockchain Confession App (/irys route)"
   test_all: false
-  test_priority: "high_first"
+  test_priority: "stuck_first"
 
 agent_communication:
   - agent: "main"
