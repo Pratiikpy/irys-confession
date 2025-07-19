@@ -17,36 +17,24 @@ const WalletConnection = ({ onSuccess, onClose, mode = 'auth' }) => {
   const [error, setError] = useState(null)
   const [authData, setAuthData] = useState(null) // Store auth data for success display
   
-  const { 
-    address, 
-    isConnected, 
-    isConnecting, 
-    connector,
-    isAuthenticating,
-    isAuthenticated,
-    user,
-    authenticateWallet,
-    linkWalletToAccount,
-    disconnectWallet
-  } = useWallet()
-  
-  const { user: authUser, isAuthenticated: isAuthUserAuthenticated } = useAuth()
+  // Remove unused context dependencies since we're doing direct authentication
+  const { isAuthenticated: isAuthUserAuthenticated } = useAuth()
 
+  // Check wallet connection on component mount
   useEffect(() => {
-    // Check if wallet is already connected
     const checkConnection = async () => {
       if (window.ethereum) {
         try {
           const accounts = await window.ethereum.request({ method: 'eth_accounts' })
           if (accounts.length > 0) {
-            setStep('authenticate')
+            // Wallet already connected, but don't auto-authenticate
+            console.log('Wallet already connected:', accounts[0])
           }
         } catch (error) {
           console.error('Error checking wallet connection:', error)
         }
       }
     }
-    
     checkConnection()
   }, [])
 
