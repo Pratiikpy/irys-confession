@@ -1,4 +1,4 @@
-// Load configuration from environment or config file
+const webpack = require('webpack')
 const path = require('path');
 
 // Environment variable overrides
@@ -12,6 +12,33 @@ module.exports = {
       '@': path.resolve(__dirname, 'src'),
     },
     configure: (webpackConfig) => {
+      
+      // Add Node.js polyfills for Irys blockchain libraries
+      webpackConfig.resolve = {
+        ...webpackConfig.resolve,
+        fallback: {
+          ...webpackConfig.resolve.fallback,
+          "crypto": require.resolve("crypto-browserify"),
+          "stream": require.resolve("stream-browserify"),
+          "assert": require.resolve("assert"),
+          "http": false,
+          "https": false,
+          "os": require.resolve("os-browserify/browser"),
+          "url": require.resolve("url-polyfill"),
+          "path": require.resolve("path-browserify"),
+          "buffer": require.resolve("buffer"),
+          "process": require.resolve("process/browser")
+        }
+      }
+
+      // Add webpack plugins for global polyfills
+      webpackConfig.plugins = [
+        ...webpackConfig.plugins,
+        new webpack.ProvidePlugin({
+          process: 'process/browser',
+          Buffer: ['buffer', 'Buffer']
+        })
+      ]
       
       // Disable hot reload completely if environment variable is set
       if (config.disableHotReload) {
