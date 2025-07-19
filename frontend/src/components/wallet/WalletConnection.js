@@ -59,30 +59,43 @@ const WalletConnection = ({ onSuccess, onClose, mode = 'auth' }) => {
         return
       }
       
-      // Request account access
-      const accounts = await window.ethereum.request({
-        method: 'eth_requestAccounts'
-      })
-      
-      if (accounts.length === 0) {
-        setError('No accounts found. Please make sure your wallet is unlocked.')
+      // Request account access with better error handling
+      try {
+        const accounts = await window.ethereum.request({
+          method: 'eth_requestAccounts'
+        })
+        
+        if (accounts.length === 0) {
+          setError('No accounts found. Please make sure your wallet is unlocked.')
+          return
+        }
+        
+        // Get the connected account
+        const account = accounts[0]
+        console.log('Connected account:', account)
+        
+        // Move to authenticate step with the connected account
+        setStep('authenticate')
+        
+        // Show success message
+        toast.success('Wallet connected successfully!')
+        
+      } catch (connectError) {
+        console.error('MetaMask connection error:', connectError)
+        
+        if (connectError.code === 4001) {
+          setError('Connection rejected by user. Please try again.')
+        } else if (connectError.code === -32002) {
+          setError('Connection request is already pending. Please check MetaMask.')
+        } else {
+          setError(`Connection failed: ${connectError.message || 'Unknown error'}`)
+        }
         return
       }
       
-      // Get the connected account
-      const account = accounts[0]
-      console.log('Connected account:', account)
-      
-      // Move to authenticate step with the connected account
-      setStep('authenticate')
-      
     } catch (err) {
-      console.error('Connection error:', err)
-      if (err.code === 4001) {
-        setError('Connection rejected by user')
-      } else {
-        setError(err.message || 'Failed to connect wallet')
-      }
+      console.error('General connection error:', err)
+      setError('Failed to connect wallet. Please try again or refresh the page.')
     }
   }
 
