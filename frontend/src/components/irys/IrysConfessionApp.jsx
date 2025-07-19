@@ -170,10 +170,28 @@ export function IrysConfessionApp() {
           </div>
         )}
 
-        {/* Post Confession Form */}
-        <div className="mb-8">
-          <PostConfession onNewPost={handleNewConfession} />
-        </div>
+        {/* Post Confession Form - Only show when wallet is connected */}
+        {isConnected ? (
+          <div className="mb-8">
+            <PostConfession onNewPost={handleNewConfession} />
+          </div>
+        ) : (
+          <div className="mb-8 bg-gray-900/50 border border-gray-700 rounded-2xl p-8 text-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">MetaMask Connection Required</h3>
+            <p className="text-gray-400 mb-6 max-w-md mx-auto">
+              You must connect your MetaMask wallet before you can post confessions to the blockchain.
+              This ensures secure, anonymous, and permanent storage of your thoughts.
+            </p>
+            <div className="text-sm text-gray-500">
+              🔒 No posting without wallet connection
+            </div>
+          </div>
+        )}
 
         {/* Confessions Feed */}
         <div className="space-y-6">
