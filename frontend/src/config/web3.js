@@ -39,7 +39,7 @@ const projectId = process.env.REACT_APP_WALLETCONNECT_PROJECT_ID || 'your-projec
 const metadata = {
   name: 'Irys Confession Board',
   description: 'A decentralized confession board powered by Irys blockchain',
-  url: typeof window !== 'undefined' ? window.location.origin : 'https://3e3b1207-d055-4dbe-b794-182eb8e522d4.preview.emergentagent.com',
+  url: typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000',
   icons: ['https://irys.xyz/favicon.ico']
 }
 
