@@ -74,11 +74,8 @@ const WalletConnection = ({ onSuccess, onClose, mode = 'auth' }) => {
         const account = accounts[0]
         console.log('Connected account:', account)
         
-        // Move to authenticate step with the connected account
-        setStep('authenticate')
-        
-        // Show success message
-        toast.success('Wallet connected successfully!')
+        // Move directly to authentication with the connected account
+        await handleDirectAuthentication(account)
         
       } catch (connectError) {
         console.error('MetaMask connection error:', connectError)
@@ -96,6 +93,86 @@ const WalletConnection = ({ onSuccess, onClose, mode = 'auth' }) => {
     } catch (err) {
       console.error('General connection error:', err)
       setError('Failed to connect wallet. Please try again or refresh the page.')
+    }
+  }
+
+  const handleDirectAuthentication = async (walletAddress) => {
+    try {
+      setError(null)
+      
+      // Step 1: Get challenge from backend
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/auth/wallet/challenge`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          wallet_address: walletAddress
+        })
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to get authentication challenge')
+      }
+      
+      const challengeData = await response.json()
+      
+      // Step 2: Sign the challenge message
+      const signature = await window.ethereum.request({
+        method: 'personal_sign',
+        params: [challengeData.message, walletAddress]
+      })
+      
+      // Step 3: Verify signature with backend
+      const verifyResponse = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/auth/wallet/verify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          wallet_address: walletAddress,
+          signature: signature,
+          message: challengeData.message,
+          wallet_type: 'metamask'
+        })
+      })
+      
+      if (!verifyResponse.ok) {
+        const errorData = await verifyResponse.json()
+        throw new Error(errorData.detail || 'Authentication failed')
+      }
+      
+      const authData = await verifyResponse.json()
+      
+      // Step 4: Handle success
+      if (authData.access_token) {
+        localStorage.setItem('token', authData.access_token)
+        
+        setStep('success')
+        toast.success(`Welcome ${authData.user.username}!`)
+        
+        // Call success callback with auth data
+        setTimeout(() => {
+          if (onSuccess) {
+            onSuccess({
+              address: walletAddress,
+              token: authData.access_token,
+              user: authData.user
+            })
+          }
+        }, 1500)
+      }
+      
+    } catch (err) {
+      console.error('Authentication error:', err)
+      
+      if (err.message?.includes('User rejected')) {
+        setError('Signature rejected by user. Please try again.')
+      } else if (err.message?.includes('fetch')) {
+        setError('Network error. Please check your connection and try again.')
+      } else {
+        setError(err.message || 'Authentication failed. Please try again.')
+      }
     }
   }
 
