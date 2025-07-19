@@ -32,10 +32,22 @@ const WalletConnection = ({ onSuccess, onClose, mode = 'auth' }) => {
   const { user: authUser, isAuthenticated: isAuthUserAuthenticated } = useAuth()
 
   useEffect(() => {
-    if (isConnected && address) {
-      setStep('authenticate')
+    // Check if wallet is already connected
+    const checkConnection = async () => {
+      if (window.ethereum) {
+        try {
+          const accounts = await window.ethereum.request({ method: 'eth_accounts' })
+          if (accounts.length > 0) {
+            setStep('authenticate')
+          }
+        } catch (error) {
+          console.error('Error checking wallet connection:', error)
+        }
+      }
     }
-  }, [isConnected, address])
+    
+    checkConnection()
+  }, [])
 
   const handleConnect = async () => {
     try {
