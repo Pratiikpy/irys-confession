@@ -88,7 +88,9 @@ body {
 }
 
 .header-right {
-  width: 24px; /* Balance the logo */
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 /* Main Content */
