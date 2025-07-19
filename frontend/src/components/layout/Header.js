@@ -160,12 +160,36 @@ const Header = () => {
                 </div>
               </>
             ) : (
-              <button 
-                onClick={() => setShowAuthModal(true)}
-                className="auth-button"
-              >
-                Sign In
-              </button>
+              <div className="auth-buttons">
+                {/* Wallet Connection Button */}
+                {isConnected ? (
+                  <div className="wallet-status">
+                    <div className="wallet-indicator">
+                      <Wallet size={16} />
+                      <span className="wallet-address mobile-hidden">
+                        {formatAddress(address)}
+                      </span>
+                      <div className="connection-dot connected" />
+                    </div>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={handleWalletAuth}
+                    className="wallet-connect-button"
+                  >
+                    <Wallet size={18} />
+                    <span>Connect Wallet</span>
+                  </button>
+                )}
+                
+                {/* Traditional Auth Button */}
+                <button 
+                  onClick={() => setShowAuthModal(true)}
+                  className="auth-button secondary"
+                >
+                  Sign In
+                </button>
+              </div>
             )}
 
             {/* Mobile Menu Button */}
