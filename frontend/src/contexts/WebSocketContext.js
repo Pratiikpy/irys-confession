@@ -24,7 +24,8 @@ export const WebSocketProvider = ({ children }) => {
     }
 
     const userId = user?.id || 'anonymous';
-    const wsUrl = `${process.env.REACT_APP_BACKEND_URL.replace('http', 'ws')}/ws/${userId}`;
+    const backendUrl = process.env.REACT_APP_BACKEND_URL;
+    const wsUrl = `${backendUrl.replace('http://', 'ws://').replace('https://', 'wss://')}/ws/${userId}`;
     
     const ws = new WebSocket(wsUrl);
     
