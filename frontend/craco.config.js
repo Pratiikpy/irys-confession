@@ -27,7 +27,11 @@ module.exports = {
           "url": require.resolve("url-polyfill"),
           "path": require.resolve("path-browserify"),
           "buffer": require.resolve("buffer"),
-          "process": require.resolve("process/browser")
+          "process": require.resolve("process/browser"),
+          "module": false,
+          "fs": false,
+          "net": false,
+          "tls": false
         }
       }
 
@@ -37,8 +41,25 @@ module.exports = {
         new webpack.ProvidePlugin({
           process: 'process/browser',
           Buffer: ['buffer', 'Buffer']
+        }),
+        new webpack.DefinePlugin({
+          'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
         })
       ]
+      
+      // Add module rule for handling ES6 modules
+      webpackConfig.module = {
+        ...webpackConfig.module,
+        rules: [
+          ...webpackConfig.module.rules,
+          {
+            test: /\.m?js$/,
+            resolve: {
+              fullySpecified: false,
+            },
+          }
+        ]
+      }
       
       // Disable hot reload completely if environment variable is set
       if (config.disableHotReload) {
