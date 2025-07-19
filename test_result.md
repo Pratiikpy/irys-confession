@@ -328,6 +328,18 @@ frontend:
         agent: "testing"
         comment: "TESTED: Homepage confession display functionality working perfectly after Claude API failure fix. ✅ Confessions loading from /api/confessions/public endpoint (6 confessions displayed), ✅ Confession cards showing content/author/timestamp/voting/reply buttons, ✅ Filter bar functional (All/Trending/Recent/AI Enhanced), ✅ Voting system working (vote counts update), ✅ Professional UI with proper styling, ✅ API integration working (backend returning confessions), ✅ Welcome section for unauthenticated users, ✅ Responsive design. Fixed compilation errors (AnalyticsPage.js syntax, missing background image) during testing."
 
+  - task: "Irys Blockchain Confession App (/irys route)"
+    implemented: true
+    working: false
+    file: "components/irys/IrysConfessionApp.jsx"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "testing"
+        comment: "❌ CRITICAL ISSUE: IrysConfessionApp component is NOT rendering on /irys route. Router redirects from /irys to / and renders HomePage instead. Component exists, routing config correct, Irys packages installed, but component fails at runtime causing React Router fallback. Dedicated MetaMask + Irys blockchain confession functionality completely non-functional. Root cause: Runtime error in IrysConfessionApp preventing component load. REQUIRES IMMEDIATE FIX."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
