@@ -141,14 +141,42 @@ const WalletConnection = ({ onSuccess, onClose, mode = 'auth' }) => {
           </p>
 
           <div className="space-y-3">
-            <w3m-button 
-              size="md" 
-              label="Connect Wallet"
-              loadingLabel="Connecting..."
-            />
+            {/* Direct MetaMask Connection */}
+            <button
+              onClick={handleConnect}
+              className="w-full bg-[#00D1FF] hover:bg-[#00D1FF]/90 text-black font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-3"
+            >
+              <span className="text-2xl">🦊</span>
+              <span>Connect MetaMask</span>
+            </button>
+            
+            {/* Alternative Wallets */}
+            <div className="flex gap-2">
+              <button
+                onClick={handleConnect}
+                className="flex-1 bg-[#333] hover:bg-[#444] text-white font-medium py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <span className="text-lg">🔵</span>
+                <span className="text-sm">Coinbase</span>
+              </button>
+              <button
+                onClick={handleConnect}
+                className="flex-1 bg-[#333] hover:bg-[#444] text-white font-medium py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <span className="text-lg">🛡️</span>
+                <span className="text-sm">Trust</span>
+              </button>
+              <button
+                onClick={handleConnect}
+                className="flex-1 bg-[#333] hover:bg-[#444] text-white font-medium py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <span className="text-lg">🐰</span>
+                <span className="text-sm">Rabby</span>
+              </button>
+            </div>
             
             <p className="text-xs text-gray-500 text-center">
-              Supports MetaMask, Coinbase, WalletConnect, Trust Wallet, and more
+              Click any wallet to connect. MetaMask, Coinbase, Trust Wallet, and Rabby supported.
             </p>
           </div>
 
