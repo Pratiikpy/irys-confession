@@ -139,8 +139,9 @@ export function ConfessionCard({ confession }) {
         )}
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-4 pt-2 border-t border-gray-800">
+      {/* Actions & Blockchain Proof */}
+      <div className="flex items-center justify-between pt-4 border-t border-gray-800">
+        {/* Left side - Comments button */}
         <button
           onClick={() => setShowComments(!showComments)}
           className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
@@ -148,18 +149,57 @@ export function ConfessionCard({ confession }) {
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
-          <span className="text-sm">
-            Comments ({comments.length})
-          </span>
+          <span className="text-sm">Comments ({comments.length})</span>
         </button>
 
-        <div className="flex items-center gap-2 text-gray-400">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.102m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-          </svg>
-          <span className="text-xs">
-            TX: {confession.txId ? `${confession.txId.slice(0, 8)}...` : 'Pending'}
-          </span>
+        {/* Right side - Blockchain verification */}
+        <div className="flex items-center gap-3">
+          {/* Blockchain Proof Badge */}
+          <div className="flex items-center gap-2 bg-green-900/20 border border-green-600/30 rounded-lg px-3 py-1">
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            <span className="text-green-300 text-xs font-medium">✓ Permanently Stored</span>
+          </div>
+          
+          {/* Transaction ID Display */}
+          <div className="flex items-center gap-2 text-gray-400 bg-gray-800/50 rounded-lg px-3 py-1">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.102m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            </svg>
+            <span className="text-xs font-mono">
+              TX: {confession.txId ? `${confession.txId.slice(0, 8)}...` : 'Pending'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Blockchain Explorer Links Row */}
+      <div className="flex items-center justify-between pt-2 pb-1">
+        <div className="text-xs text-gray-500">
+          🔗 This confession is permanently stored on Irys blockchain
+        </div>
+        <div className="flex items-center gap-2">
+          <a 
+            href={confession.viewUrl || confession.explorerUrl || `https://devnet.irys.xyz/${confession.txId}`} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+            View on Irys
+          </a>
+          <a 
+            href={`https://gateway.irys.xyz/${confession.txId}`} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Raw Data
+          </a>
         </div>
       </div>
 
