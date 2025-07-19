@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 import Modal from '../common/Modal';
 
 const AuthModal = ({ isOpen, onClose }) => {
-  const [mode, setMode] = useState('choose'); // 'choose', 'login', 'register', 'wallet'
+  const [mode, setMode] = useState('wallet'); // Start with wallet mode by default
   const [formData, setFormData] = useState({
     username: '',
     email: '',
