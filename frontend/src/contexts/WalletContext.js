@@ -13,8 +13,8 @@ const queryClient = new QueryClient()
 createWeb3Modal({
   wagmiConfig: config,
   projectId: process.env.REACT_APP_WALLETCONNECT_PROJECT_ID || 'your-project-id',
-  enableAnalytics: true,
-  enableOnramp: true,
+  enableAnalytics: false, // Disable to avoid 403 errors from WalletConnect analytics
+  enableOnramp: false,    // Disable to avoid additional API calls
   ...walletConfig
 })
 
