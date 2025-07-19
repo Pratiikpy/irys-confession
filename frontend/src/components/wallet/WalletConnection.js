@@ -40,10 +40,37 @@ const WalletConnection = ({ onSuccess, onClose, mode = 'auth' }) => {
   const handleConnect = async () => {
     try {
       setError(null)
-      // Connection is handled by Web3Modal
-      // This will be triggered by the useEffect above
+      
+      // Check if MetaMask is installed
+      if (!window.ethereum) {
+        setError('MetaMask is not installed. Please install MetaMask to connect your wallet.')
+        return
+      }
+      
+      // Request account access
+      const accounts = await window.ethereum.request({
+        method: 'eth_requestAccounts'
+      })
+      
+      if (accounts.length === 0) {
+        setError('No accounts found. Please make sure your wallet is unlocked.')
+        return
+      }
+      
+      // Get the connected account
+      const account = accounts[0]
+      console.log('Connected account:', account)
+      
+      // Move to authenticate step with the connected account
+      setStep('authenticate')
+      
     } catch (err) {
-      setError(err.message || 'Failed to connect wallet')
+      console.error('Connection error:', err)
+      if (err.code === 4001) {
+        setError('Connection rejected by user')
+      } else {
+        setError(err.message || 'Failed to connect wallet')
+      }
     }
   }
 
