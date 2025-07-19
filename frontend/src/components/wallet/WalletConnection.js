@@ -13,8 +13,9 @@ import {
 } from '@heroicons/react/24/outline'
 
 const WalletConnection = ({ onSuccess, onClose, mode = 'auth' }) => {
-  const [step, setStep] = useState('connect') // connect, authenticate, success
+  const [step, setStep] = useState('connect') // connect, success
   const [error, setError] = useState(null)
+  const [authData, setAuthData] = useState(null) // Store auth data for success display
   
   const { 
     address, 
