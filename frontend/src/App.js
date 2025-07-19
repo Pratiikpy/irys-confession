@@ -17,6 +17,9 @@ import UserProfile from './pages/UserProfile';
 import SearchPage from './pages/SearchPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 
+// Irys Confession App
+import IrysConfessionApp from './components/irys/IrysConfessionApp';
+
 // Modal Components
 import AuthModal from './components/auth/AuthModal';
 import ComposeModal from './components/confession/ComposeModal';
@@ -50,6 +53,7 @@ function App() {
                   <main className="main-content">
                     <Routes>
                       <Route path="/" element={<HomePage />} />
+                      <Route path="/irys" element={<IrysConfessionApp />} />
                       <Route path="/confession/:id" element={<ConfessionPage />} />
                       <Route path="/user/:username" element={<UserProfile />} />
                       <Route path="/search" element={<SearchPage />} />
