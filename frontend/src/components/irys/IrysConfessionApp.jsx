@@ -11,6 +11,8 @@ import ConfessionCard from './ConfessionCard'
 import { irysService } from '../../services/irysService'
 
 export function IrysConfessionApp() {
+  console.log('IrysConfessionApp component rendering...')
+  
   const { address, isConnected } = useAccount()
   const [confessions, setConfessions] = useState([])
   const [loading, setLoading] = useState(false)
