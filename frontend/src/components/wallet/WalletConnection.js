@@ -17,7 +17,16 @@ const WalletConnection = ({ onSuccess, onClose, mode = 'auth' }) => {
   const [error, setError] = useState(null)
   const [authData, setAuthData] = useState(null) // Store auth data for success display
   
-  // Remove unused context dependencies since we're doing direct authentication
+  // Get only the wallet functions we actually need
+  const { 
+    address, 
+    isConnected, 
+    connector,
+    isAuthenticating,
+    authenticateWallet,
+    linkWalletToAccount
+  } = useWallet()
+  
   const { isAuthenticated: isAuthUserAuthenticated } = useAuth()
 
   // Check wallet connection on component mount
