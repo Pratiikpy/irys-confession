@@ -298,69 +298,6 @@ const WalletConnection = ({ onSuccess, onClose, mode = 'auth' }) => {
         </div>
       )}
 
-      {step === 'authenticate' && isConnected && (
-        <div className="space-y-4">
-          <div className="p-4 bg-[#00D1FF]/5 border border-[#00D1FF]/20 rounded-lg">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-400">Connected Wallet</span>
-              <button
-                onClick={handleDisconnect}
-                className="text-xs text-gray-500 hover:text-gray-300"
-              >
-                Disconnect
-              </button>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">{getWalletIcon(connector?.name)}</span>
-              <div>
-                <p className="text-white font-medium">
-                  {connector?.name || 'Unknown Wallet'}
-                </p>
-                <p className="text-sm text-gray-400">
-                  {formatAddress(address)}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <button
-              onClick={handleAuthenticate}
-              disabled={isAuthenticating}
-              className="w-full bg-[#00D1FF] hover:bg-[#00D1FF]/90 disabled:bg-[#00D1FF]/50 text-black font-medium py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
-            >
-              {isAuthenticating ? (
-                <>
-                  <ArrowPathIcon className="w-5 h-5 animate-spin" />
-                  {mode === 'link' ? 'Linking...' : 'Authenticating...'}
-                </>
-              ) : (
-                <>
-                  {mode === 'link' ? (
-                    <>
-                      <LinkIcon className="w-5 h-5" />
-                      Link Wallet
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircleIcon className="w-5 h-5" />
-                      Sign Message
-                    </>
-                  )}
-                </>
-              )}
-            </button>
-
-            <p className="text-xs text-gray-500 text-center">
-              {mode === 'link' 
-                ? 'Sign a message to link your wallet to your account'
-                : 'Sign a message to authenticate with your wallet'
-              }
-            </p>
-          </div>
-        </div>
-      )}
-
       {step === 'success' && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
