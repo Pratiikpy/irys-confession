@@ -181,42 +181,6 @@ const WalletConnection = ({ onSuccess, onClose, mode = 'auth' }) => {
     }
   }
 
-  const handleAuthenticate = async () => {
-    try {
-      setError(null)
-      
-      // Get current account from MetaMask
-      const accounts = await window.ethereum.request({ method: 'eth_accounts' })
-      if (accounts.length === 0) {
-        setError('No wallet connected. Please connect your wallet first.')
-        setStep('connect')
-        return
-      }
-      
-      const currentAddress = accounts[0]
-      
-      if (mode === 'link' && !isAuthUserAuthenticated) {
-        setError('Please log in first to link your wallet')
-        return
-      }
-      
-      if (mode === 'link') {
-        await linkWalletToAccount(currentAddress)
-        setStep('success')
-      } else {
-        await authenticateWallet(currentAddress)
-        setStep('success')
-      }
-      
-      setTimeout(() => {
-        onSuccess?.()
-      }, 1500)
-      
-    } catch (err) {
-      setError(err.message || 'Authentication failed')
-    }
-  }
-
   const handleDisconnect = () => {
     // For direct MetaMask connection, we can't programmatically disconnect
     // but we can reset the component state
