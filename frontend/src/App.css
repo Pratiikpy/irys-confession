@@ -1236,6 +1236,28 @@ textarea:focus-visible {
   background: var(--accent-hover);
 }
 
+.mobile-wallet-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 0.5rem;
+}
+
+.mobile-wallet-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 209, 255, 0.3);
+}
+
 /* Welcome Section */
 .welcome-section {
   background: var(--card);
