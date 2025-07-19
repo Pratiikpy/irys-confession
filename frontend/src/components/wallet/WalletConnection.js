@@ -123,7 +123,8 @@ const WalletConnection = ({ onSuccess, onClose, mode = 'auth' }) => {
   }
 
   const handleDisconnect = () => {
-    disconnectWallet()
+    // For direct MetaMask connection, we can't programmatically disconnect
+    // but we can reset the component state
     setStep('connect')
     setError(null)
   }
