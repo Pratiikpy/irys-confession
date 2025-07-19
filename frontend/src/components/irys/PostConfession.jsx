@@ -76,10 +76,32 @@ export function PostConfession({ onNewPost }) {
       setContent('')
       setIsPrivate(false)
       
+      
       toast.success(
-        <div>
-          <div className="font-semibold">Confession posted to blockchain!</div>
-          <div className="text-sm opacity-75">TX: {result.txId.slice(0, 12)}...</div>
+        <div className="text-left">
+          <div className="font-semibold text-green-300 mb-1">🎉 Confession Stored on Blockchain!</div>
+          <div className="text-sm text-gray-300 mb-2">Your anonymous confession is now permanently stored on Irys devnet.</div>
+          <div className="text-xs text-gray-400 bg-gray-800 rounded p-2 font-mono">
+            TX: {result.txId}
+          </div>
+          <div className="flex gap-2 mt-2">
+            <a 
+              href={result.viewUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-blue-400 hover:text-blue-300 text-xs underline"
+            >
+              View on Explorer →
+            </a>
+            <a 
+              href={`https://gateway.irys.xyz/${result.txId}`} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-purple-400 hover:text-purple-300 text-xs underline"
+            >
+              View Raw Data →
+            </a>
+          </div>
         </div>
       )
       
