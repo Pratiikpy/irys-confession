@@ -20,9 +20,6 @@ import AnalyticsPage from './pages/AnalyticsPage';
 // Irys Confession App
 import IrysConfessionApp from './components/irys/IrysConfessionApp';
 
-// Irys Confession App
-import IrysConfessionApp from './components/irys/IrysConfessionApp';
-
 // Modal Components
 import AuthModal from './components/auth/AuthModal';
 import ComposeModal from './components/confession/ComposeModal';
