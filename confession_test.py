@@ -16,7 +16,7 @@ from datetime import datetime
 import time
 
 class ConfessionAPITester:
-    def __init__(self, base_url="https://3e3b1207-d055-4dbe-b794-182eb8e522d4.preview.emergentagent.com/api"):
+    def __init__(self, base_url="https://79ed6a3e-8f76-414f-9bbe-133047646c9d.preview.emergentagent.com/api"):
         self.base_url = base_url
         self.tests_run = 0
         self.tests_passed = 0
