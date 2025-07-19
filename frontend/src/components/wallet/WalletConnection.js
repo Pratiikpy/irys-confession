@@ -149,6 +149,13 @@ const WalletConnection = ({ onSuccess, onClose, mode = 'auth' }) => {
       if (authData.access_token) {
         localStorage.setItem('token', authData.access_token)
         
+        // Store auth data for success display
+        setAuthData({
+          address: walletAddress,
+          user: authData.user,
+          token: authData.access_token
+        })
+        
         setStep('success')
         toast.success(`Welcome ${authData.user.username}!`)
         
