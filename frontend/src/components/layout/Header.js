@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Search, Bell, User, Settings, LogOut, Menu, X, Wallet } from 'lucide-react';
@@ -8,6 +8,7 @@ import { useWallet } from '../../contexts/WalletContext';
 import AuthModal from '../auth/AuthModal';
 import SearchModal from '../search/SearchModal';
 import NotificationPanel from '../notifications/NotificationPanel';
+import WalletConnection from '../wallet/WalletConnection';
 
 const Header = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -15,11 +16,24 @@ const Header = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showWalletModal, setShowWalletModal] = useState(false);
   
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, user, logout, walletAuth } = useAuth();
   const { connected, liveUpdates } = useWebSocket();
   const { isConnected, address, connector } = useWallet();
   const navigate = useNavigate();
+
+  // Listen for auth state changes
+  useEffect(() => {
+    const handleAuthChange = () => {
+      // Force component re-render when auth state changes
+      setShowWalletModal(false);
+      setShowAuthModal(false);
+    };
+
+    window.addEventListener('auth-state-changed', handleAuthChange);
+    return () => window.removeEventListener('auth-state-changed', handleAuthChange);
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -28,7 +42,22 @@ const Header = () => {
   };
 
   const handleWalletAuth = () => {
-    setShowAuthModal(true);
+    setShowWalletModal(true);
+  };
+
+  const handleWalletSuccess = async (authData) => {
+    try {
+      // Use the walletAuth method from AuthContext
+      await walletAuth(authData);
+      
+      // Close the wallet modal
+      setShowWalletModal(false);
+      
+      // Optional: Show success message
+      console.log('Wallet authentication successful!');
+    } catch (error) {
+      console.error('Failed to complete wallet auth:', error);
+    }
   };
 
   const formatAddress = (addr) => {
