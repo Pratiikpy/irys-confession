@@ -125,7 +125,7 @@ const Header = () => {
               </span>
             </div>
 
-            {isAuthenticated ? (
+            {isAuthenticated && user ? (
               <>
                 {/* Notifications */}
                 <button 
@@ -153,6 +153,14 @@ const Header = () => {
                     </div>
                     <span className="user-name mobile-hidden">{user?.username}</span>
                   </button>
+
+                  {/* Show wallet address if connected */}
+                  {address && (
+                    <div className="wallet-badge">
+                      <Wallet size={14} />
+                      <span>{formatAddress(address)}</span>
+                    </div>
+                  )}
 
                   {showUserMenu && (
                     <motion.div
@@ -191,25 +199,13 @@ const Header = () => {
             ) : (
               <div className="auth-buttons">
                 {/* Wallet Connection Button */}
-                {isConnected ? (
-                  <div className="wallet-status">
-                    <div className="wallet-indicator">
-                      <Wallet size={16} />
-                      <span className="wallet-address mobile-hidden">
-                        {formatAddress(address)}
-                      </span>
-                      <div className="connection-dot connected" />
-                    </div>
-                  </div>
-                ) : (
-                  <button 
-                    onClick={handleWalletAuth}
-                    className="wallet-connect-button"
-                  >
-                    <Wallet size={18} />
-                    <span>Connect Wallet</span>
-                  </button>
-                )}
+                <button 
+                  onClick={handleWalletAuth}
+                  className="wallet-connect-button"
+                >
+                  <Wallet size={18} />
+                  <span>Connect Wallet</span>
+                </button>
                 
                 {/* Traditional Auth Button */}
                 <button 
