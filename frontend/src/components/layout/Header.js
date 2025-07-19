@@ -286,6 +286,19 @@ const Header = () => {
         isOpen={showSearchModal}
         onClose={() => setShowSearchModal(false)}
       />
+
+      {/* Wallet Connection Modal */}
+      {showWalletModal && (
+        <div className="modal-overlay" onClick={() => setShowWalletModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <WalletConnection 
+              onSuccess={handleWalletSuccess}
+              onClose={() => setShowWalletModal(false)}
+              mode="auth"
+            />
+          </div>
+        </div>
+      )}
     </>
   );
 };
