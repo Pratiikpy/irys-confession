@@ -217,15 +217,29 @@ const Header = () => {
               Analytics
             </Link>
             {!isAuthenticated && (
-              <button 
-                onClick={() => {
-                  setShowAuthModal(true);
-                  setShowMobileMenu(false);
-                }}
-                className="mobile-auth-button"
-              >
-                Sign In
-              </button>
+              <>
+                {!isConnected && (
+                  <button 
+                    onClick={() => {
+                      handleWalletAuth();
+                      setShowMobileMenu(false);
+                    }}
+                    className="mobile-wallet-button"
+                  >
+                    <Wallet size={18} />
+                    Connect Wallet
+                  </button>
+                )}
+                <button 
+                  onClick={() => {
+                    setShowAuthModal(true);
+                    setShowMobileMenu(false);
+                  }}
+                  className="mobile-auth-button"
+                >
+                  Sign In
+                </button>
+              </>
             )}
           </motion.div>
         )}
