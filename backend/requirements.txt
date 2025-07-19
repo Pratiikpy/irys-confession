@@ -31,3 +31,4 @@ ecdsa>=0.18.0
 httpx
 aiohttp
 multidict
+attrs
